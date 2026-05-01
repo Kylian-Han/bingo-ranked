@@ -39,7 +39,7 @@ public class BackendClient {
         this.http = HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_1_1)
                 .connectTimeout(Duration.ofSeconds(10))
-                .executor(Executors.newSingleThreadExecutor(r -> {
+                .executor(Executors.newCachedThreadPool(r -> {
                     Thread t = new Thread(r, "ranked-bingo-http");
                     t.setDaemon(true);
                     return t;
@@ -68,12 +68,16 @@ public class BackendClient {
                 .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
                 .build();
 
+        LOGGER.info("[ranked_bingo] sending {} to {}{}", "POST", config.backendUrl, path);
         return http.sendAsync(req, HttpResponse.BodyHandlers.ofString())
                 .whenComplete((res, err) -> {
                     if (err != null) {
                         LOGGER.warn("[ranked_bingo] {} request failed: {}", path, err.toString());
-                    } else if (res.statusCode() >= 400) {
-                        LOGGER.warn("[ranked_bingo] {} returned {} — {}", path, res.statusCode(), res.body());
+                    } else {
+                        LOGGER.info("[ranked_bingo] {} → {}", path, res.statusCode());
+                        if (res.statusCode() >= 400) {
+                            LOGGER.warn("[ranked_bingo] {} returned {} — {}", path, res.statusCode(), res.body());
+                        }
                     }
                 });
     }

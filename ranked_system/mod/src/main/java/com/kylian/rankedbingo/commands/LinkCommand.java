@@ -7,9 +7,6 @@ import com.mojang.brigadier.CommandDispatcher;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.ClickEvent;
-import net.minecraft.text.HoverEvent;
-import net.minecraft.text.Style;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 
@@ -20,6 +17,7 @@ import net.minecraft.util.Formatting;
  */
 public class LinkCommand {
     private static final Gson GSON = new Gson();
+    private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger("RankedBingo/Link");
 
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher) {
         dispatcher.register(CommandManager.literal("link").executes(ctx -> {
@@ -36,36 +34,40 @@ public class LinkCommand {
 
             Dtos.LinkRequest body = new Dtos.LinkRequest(
                     player.getUuid().toString(),
-                    player.getGameProfile().getName()
+                    player.getName().getString()
             );
 
-            // The execute() method sends the request asynchronously and replies
-            // to the player on completion — so the command exits immediately.
+            LOGGER.info("[ranked_bingo] /link invoked by {}, config usable={}", player.getName().getString(), RankedBingo.CONFIG.isUsable());
+            // Capture server reference now, on the server thread, before going async.
+            net.minecraft.server.MinecraftServer mcServer = src.getServer();
             RankedBingo.BACKEND.postSigned("/link/request", body)
                     .thenAccept(res -> {
-                        // Run on the server thread so chat sends are safe.
-                        player.getServer().execute(() -> {
-                            if (res.statusCode() == 201) {
-                                Dtos.LinkResponse resp;
-                                try {
-                                    resp = GSON.fromJson(res.body(), Dtos.LinkResponse.class);
-                                } catch (Exception e) {
-                                    player.sendMessage(Text.literal("Backend returned an unreadable response.").formatted(Formatting.RED), false);
-                                    return;
-                                }
-                                sendCodeMessage(player, resp.code(), resp.expires_in_seconds());
-                            } else if (res.statusCode() == 409) {
-                                player.sendMessage(Text.literal("Your Minecraft account is already linked. Use the website to unlink first.").formatted(Formatting.RED), false);
-                            } else {
-                                player.sendMessage(Text.literal("Could not generate a link code. Try again later.").formatted(Formatting.RED), false);
-                                RankedBingo.LOGGER.warn("[ranked_bingo] /link returned {} — {}", res.statusCode(), res.body());
+                        int status = res.statusCode();
+                        String responseBody = res.body();
+                        LOGGER.info("[ranked_bingo] thenAccept fired, status={}", status);
+                        if (status == 201) {
+                            String code = extractJsonString(responseBody, "code");
+                            long ttl = extractJsonLong(responseBody, "expires_in_seconds", 300L);
+                            if (code == null) {
+                                LOGGER.warn("[ranked_bingo] could not extract code from: {}", responseBody);
+                                mcServer.execute(() ->
+                                        player.sendMessage(net.minecraft.text.Text.literal("Backend returned an unreadable response.").formatted(net.minecraft.util.Formatting.RED), false));
+                                return;
                             }
-                        });
+                            mcServer.execute(() -> sendCodeMessage(player, code, ttl));
+                        } else if (status == 409) {
+                            mcServer.execute(() ->
+                                    player.sendMessage(net.minecraft.text.Text.literal("Your Minecraft account is already linked. Use the website to unlink first.").formatted(net.minecraft.util.Formatting.RED), false));
+                        } else {
+                            LOGGER.warn("[ranked_bingo] /link returned {} — {}", status, responseBody);
+                            mcServer.execute(() ->
+                                    player.sendMessage(net.minecraft.text.Text.literal("Could not generate a link code. Try again later.").formatted(net.minecraft.util.Formatting.RED), false));
+                        }
                     })
                     .exceptionally(err -> {
-                        player.getServer().execute(() ->
-                                player.sendMessage(Text.literal("Could not reach the ranked website.").formatted(Formatting.RED), false)
-                        );
+                        LOGGER.warn("[ranked_bingo] /link exceptionally: {}", err.toString());
+                        mcServer.execute(() ->
+                                player.sendMessage(net.minecraft.text.Text.literal("Could not reach the ranked website.").formatted(net.minecraft.util.Formatting.RED), false));
                         return null;
                     });
 
@@ -74,14 +76,29 @@ public class LinkCommand {
         }));
     }
 
-    private static void sendCodeMessage(ServerPlayerEntity player, String code, Long ttlSec) {
-        long minutes = (ttlSec == null ? 300 : ttlSec) / 60;
-        Text codePart = Text.literal(code).setStyle(Style.EMPTY
-                .withColor(Formatting.AQUA)
-                .withBold(true)
-                .withClickEvent(new ClickEvent(ClickEvent.Action.COPY_TO_CLIPBOARD, code))
-                .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Text.literal("Click to copy")))
-        );
+    private static String extractJsonString(String json, String key) {
+        String search = "\"" + key + "\":\"";
+        int start = json.indexOf(search);
+        if (start < 0) return null;
+        start += search.length();
+        int end = json.indexOf('"', start);
+        if (end < 0) return null;
+        return json.substring(start, end);
+    }
+
+    private static long extractJsonLong(String json, String key, long fallback) {
+        String search = "\"" + key + "\":";
+        int start = json.indexOf(search);
+        if (start < 0) return fallback;
+        start += search.length();
+        int end = start;
+        while (end < json.length() && (Character.isDigit(json.charAt(end)) || json.charAt(end) == '-')) end++;
+        try { return Long.parseLong(json.substring(start, end)); } catch (Exception e) { return fallback; }
+    }
+
+    private static void sendCodeMessage(ServerPlayerEntity player, String code, long ttlSec) {
+        long minutes = ttlSec / 60;
+        Text codePart = Text.literal(code).formatted(Formatting.AQUA, Formatting.BOLD);
         Text line1 = Text.literal("Your link code: ").formatted(Formatting.GREEN).append(codePart);
         Text line2 = Text.literal("Paste it on the website within " + minutes + " minutes.").formatted(Formatting.GRAY);
         player.sendMessage(line1, false);

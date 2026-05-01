@@ -51,7 +51,7 @@ public class GameTracker {
             if (team == null) continue;
             String teamName = team.getName().toLowerCase();
             if (!VALID_TEAMS.contains(teamName)) continue;
-            roster.put(p.getUuid(), new PlayerSnapshot(p.getUuid(), p.getGameProfile().getName(), teamName));
+            roster.put(p.getUuid(), new PlayerSnapshot(p.getUuid(), p.getName().getString(), teamName));
         }
     }
 
@@ -66,7 +66,7 @@ public class GameTracker {
             if (team == null) continue;
             String teamName = team.getName().toLowerCase();
             if (!VALID_TEAMS.contains(teamName)) continue;
-            roster.put(p.getUuid(), new PlayerSnapshot(p.getUuid(), p.getGameProfile().getName(), teamName));
+            roster.put(p.getUuid(), new PlayerSnapshot(p.getUuid(), p.getName().getString(), teamName));
         }
     }
 
