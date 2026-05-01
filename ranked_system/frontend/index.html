@@ -44,9 +44,9 @@
       try {
         const { modes } = await window.api.modes();
         for (const m of modes) {
-          modeSelect.appendChild(
-            window.ui.el('option', { value: m.mode, text: `${window.ui.modeLabel(m.mode)} (${m.games})` }),
-          );
+          const opt = window.ui.el('option', { value: m.mode, text: `${window.ui.modeLabel(m.mode)} (${m.games})` });
+          if (m.mode === 'normal') opt.selected = true;
+          modeSelect.appendChild(opt);
         }
       } catch {}
 
