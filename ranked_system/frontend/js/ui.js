@@ -118,11 +118,7 @@
         : el('a', { href: 'login.html', text: 'Login' }),
       !isLogged ? el('a', { href: 'register.html', text: 'Sign up' }) : null,
     ]);
-    const brand = el(
-      'a',
-      { class: 'nav-brand', href: 'index.html' },
-      [el('span', { class: 'nav-brand-mark', text: 'B' }), 'Bingo Ranked'],
-    );
+    const brand = el('a', { class: 'nav-brand', href: 'index.html', text: 'Bingo Ranked' });
     const nav = el('div', { class: 'container nav' }, [brand, right]);
     const header = document.querySelector('header.site-header');
     if (header) {
