@@ -84,8 +84,3 @@ execute if score lockout stage matches 1 run scoreboard players set supply_drop_
 kill @e[tag=center_piece]
 execute in minecraft:the_nether run forceload remove all
 forceload remove all
-
-execute if score lockout stage matches 1 run function ranked:on_start_lockout
-execute if score lockout stage matches 2 run function ranked:on_start_speed
-execute if score lockout stage matches 0 if score item_set stage matches 2 run function ranked:on_start_nether
-execute if score lockout stage matches 0 unless score item_set stage matches 2 run function ranked:on_start_normal

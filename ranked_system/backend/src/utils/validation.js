@@ -46,8 +46,8 @@ export const gameReportSchema = z.object({
   started_at: z.string().datetime(),
   ended_at: z.string().datetime(),
   duration_seconds: z.number().int().min(0).max(60 * 60 * 24),
-  winning_team: teamEnum.nullable(),
-  win_condition: winConditionEnum.nullable(),
+  winning_team: teamEnum.nullable().optional(),
+  win_condition: winConditionEnum.nullable().optional(),
   participants: z
     .array(
       z.object({

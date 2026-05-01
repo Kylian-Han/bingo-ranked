@@ -114,7 +114,6 @@ execute if score lockout stage matches 0 run function flytre:game_logic/reverse_
 
 
 
-execute if score lockout stage matches 1 if score min stage matches 0 if score sec stage matches 0 if score tick2 stage matches 0 if score in stage matches 2 run function ranked:on_lockout_timer_end
 execute if score lockout stage matches 1 if score min stage matches 0 if score sec stage matches 0 if score tick2 stage matches 0 if score in stage matches 2 run function flytre:win/detect_lockout
 execute if score lockout stage matches 1 if score min stage matches 0 if score sec stage matches 0 if score tick2 stage matches 0 if score in stage matches 2 run function flytre:win/all
 
