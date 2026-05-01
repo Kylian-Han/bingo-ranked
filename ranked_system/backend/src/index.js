@@ -9,6 +9,7 @@ import linkRoutes from './routes/link.js';
 import gameRoutes from './routes/games.js';
 import leaderboardRoutes from './routes/leaderboard.js';
 import profileRoutes from './routes/profile.js';
+import adminRoutes from './routes/admin.js';
 
 const app = express();
 
@@ -58,6 +59,7 @@ app.use('/api/link', linkRoutes);
 app.use('/api/games', gameRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/players', profileRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
