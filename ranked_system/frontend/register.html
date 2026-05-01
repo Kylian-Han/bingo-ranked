@@ -24,10 +24,6 @@
             <small class="muted">3–20 characters · letters, digits, _ or -</small>
           </label>
           <label>
-            Email <span class="muted">(optional)</span>
-            <input type="email" name="email" autocomplete="email" maxlength="254" />
-          </label>
-          <label>
             Password
             <input type="password" name="password" required autocomplete="new-password" minlength="10" maxlength="200" />
             <small class="muted">At least 10 characters. A passphrase like four random words is best.</small>
@@ -65,7 +61,6 @@
         return;
       }
       const payload = { username: data.username, password: data.password };
-      if (data.email) payload.email = data.email;
 
       submit.disabled = true;
       try {

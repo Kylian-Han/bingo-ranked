@@ -11,12 +11,9 @@ export const passwordSchema = z
   .min(10, 'Password must be at least 10 characters')
   .max(200, 'Password is too long');
 
-export const emailSchema = z.string().email().max(254).optional();
-
 export const registerSchema = z.object({
   username: usernameSchema,
   password: passwordSchema,
-  email: emailSchema,
 });
 
 export const loginSchema = z.object({

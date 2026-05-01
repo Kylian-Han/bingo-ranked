@@ -70,7 +70,7 @@ function buildAuthResponse(user) {
 
 router.post('/register', authLimiter, async (req, res, next) => {
   try {
-    const { username, password, email } = registerSchema.parse(req.body);
+    const { username, password } = registerSchema.parse(req.body);
 
     if (findUserByUsername.get(username)) {
       throw new HttpError(409, 'username_taken');
@@ -79,7 +79,7 @@ router.post('/register', authLimiter, async (req, res, next) => {
     const hash = await hashPassword(password);
     let result;
     try {
-      result = insertUser.run(username, email ?? null, hash);
+      result = insertUser.run(username, null, hash);
     } catch (e) {
       if (String(e.message).includes('UNIQUE')) {
         // Either username (already checked) or email collision.
