@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Secrets & DB (belt-and-suspenders over backend/.gitignore)
+.env
+.env.local
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Build artifacts & large binaries
+*.jar
+*.zip
+
+# Gradle (mod build cache)
+ranked_system/mod/.gradle/
+ranked_system/mod/build/
+ranked_system/mod/run/
+
+# Minecraft world data (binaries, lourds, inutiles en git)
+*.mca
+*.dat
+session.lock
+level.dat
+level.dat_old
+
+# OS
+.DS_Store
+Thumbs.db

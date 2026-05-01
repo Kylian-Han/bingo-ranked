@@ -1,0 +1,3 @@
+#foreach($i in [1..25])
+execute as @s[scores={clarify=$i}] run function flytre:clarify/$i
+#end

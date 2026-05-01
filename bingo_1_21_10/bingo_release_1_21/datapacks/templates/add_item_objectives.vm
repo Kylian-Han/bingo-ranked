@@ -1,0 +1,3 @@
+#foreach( $key in $map.keySet())
+scoreboard objectives add $map.get($key) dummy
+#end

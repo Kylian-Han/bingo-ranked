@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "ranked_bingo",
+  "version": "${version}",
+  "name": "Ranked Bingo",
+  "description": "Bridges the bingo datapack to the Ranked website (link command + win reporting).",
+  "authors": ["Kylian"],
+  "license": "MIT",
+  "environment": "server",
+  "entrypoints": {
+    "server": ["com.kylian.rankedbingo.RankedBingo"]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "fabric-api": "*",
+    "minecraft": ">=1.21",
+    "java": ">=21"
+  }
+}

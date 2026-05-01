@@ -1,0 +1,1 @@
+$item modify entity @a[tag=compass_hunter,tag=holding_compass] weapon.mainhand {function:"minecraft:set_components",components:{"minecraft:lodestone_tracker":{target:{dimension:"$(dimension)",pos:[$(x),$(y),$(z)]},tracked:0b}}}

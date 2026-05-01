@@ -1,0 +1,6 @@
+{
+  "pack": {
+    "pack_format": 61,
+    "description": "Ranked Bingo — hooks called from the main bingo datapack to report games to the website."
+  }
+}

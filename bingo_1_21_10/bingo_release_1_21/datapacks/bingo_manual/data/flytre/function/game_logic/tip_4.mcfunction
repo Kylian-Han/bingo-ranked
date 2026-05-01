@@ -1,0 +1,1 @@
+tellraw @a ["",{"text":"4. ","color":"gold"}," Use ",{"text":"/trigger ","color":"gold"},{"text":"give_map","color":"green"},{"text":" to ","color":"white"},{"text":"receive","color":"green"}," a ",{"text":"bingo card","color":"green"},{"text":".","color":"white"}]

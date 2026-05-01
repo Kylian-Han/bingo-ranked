@@ -1,0 +1,1 @@
+tellraw @a ["",{"text":"3. ","color":"gold"}," Use ",{"text":"/trigger ","color":"gold"},{"text":"vote_end","color":"green"},{"text":" to ","color":"white"},{"text":"vote ","color":"green"},"for a ",{"text":"tie.","color":"green"}]

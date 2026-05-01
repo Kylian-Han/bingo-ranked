@@ -1,0 +1,21 @@
+function flytre:game_logic/update_map
+execute as @s[team=red] run tellraw @a ["",{"text":"Red completed an item: ","color":"dark_red"},{"translate":"$item_localization","color":"dark_red"}]
+execute as @s[team=yellow] run tellraw @a ["",{"text":"Yellow completed an item: ","color":"gold"},{"translate":"$item_localization","color":"gold"}]
+execute as @s[team=green] run tellraw @a ["",{"text":"Green completed an item: ","color":"green"},{"translate":"$item_localization","color":"green"}]
+execute as @s[team=blue] run tellraw @a ["",{"text":"Blue completed an item: ","color":"dark_aqua"},{"translate":"$item_localization","color":"dark_aqua"}]
+execute as @s[team=red] as @a[team=red] at @s run playsound minecraft:entity.player.levelup player @s ~ ~ ~ 1 0.1
+execute as @s[team=yellow] as @a[team=yellow] at @s run playsound minecraft:entity.player.levelup player @s ~ ~ ~ 1 0.1
+execute as @s[team=green] as @a[team=green] at @s run playsound minecraft:entity.player.levelup player @s ~ ~ ~ 1 0.1
+execute as @s[team=blue] as @a[team=blue] at @s run playsound minecraft:entity.player.levelup player @s ~ ~ ~ 1 0.1
+execute as @s[team=red] as @a[team=!red] at @s run playsound minecraft:entity.ender_dragon.growl player @s ~ ~ ~ 1 1
+execute as @s[team=yellow] as @a[team=!yellow] at @s run playsound minecraft:entity.ender_dragon.growl player @s ~ ~ ~ 1 1
+execute as @s[team=green] as @a[team=!green] at @s run playsound minecraft:entity.ender_dragon.growl player @s ~ ~ ~ 1 1
+execute as @s[team=blue] as @a[team=!blue] at @s run playsound minecraft:entity.ender_dragon.growl player @s ~ ~ ~ 1 1
+#foreach($k in [1..25])
+execute if score $item_encryption.get($item) global matches $k at @e[type=armor_stand,tag=bingo,tag=$k] run function flytre:set_corner/base
+execute if score $item_encryption.get($item) global matches $k run scoreboard players operation red board_$k = red $item_encryption.get($item)
+execute if score $item_encryption.get($item) global matches $k run scoreboard players operation yellow board_$k = yellow $item_encryption.get($item)
+execute if score $item_encryption.get($item) global matches $k run scoreboard players operation green board_$k = green $item_encryption.get($item)
+execute if score $item_encryption.get($item) global matches $k run scoreboard players operation blue board_$k = blue $item_encryption.get($item)
+execute if score $item_encryption.get($item) global matches $k run scoreboard players operation completed board_$k = completed $item_encryption.get($item)    
+#end

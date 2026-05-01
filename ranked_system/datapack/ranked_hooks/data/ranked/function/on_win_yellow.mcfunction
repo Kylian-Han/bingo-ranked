@@ -1,0 +1,1 @@
+rankedreport end yellow none

@@ -1,0 +1,10 @@
+#foreach($x in $intloop_n42_40)
+    #set($x_1 = $x + 1)
+    #set($x_2 = $x + 2)
+summon armor_stand $x 133 $x {Tags:["line"#if($x == -42), "start"#end],Invulnerable: 1b,ShowArms: 0b, NoGravity: 0b, DisabledSlots: 2039583, Invisible: 1b}
+summon armor_stand $x_1 133 $x {Tags:["line"],Invulnerable: 1b,ShowArms: 0b, NoGravity: 0b, DisabledSlots: 2039583, Invisible: 1b}
+summon armor_stand $x 133 $x_1 {Tags:["line"],Invulnerable: 1b,ShowArms: 0b, NoGravity: 0b, DisabledSlots: 2039583, Invisible: 1b}
+summon armor_stand $x_2 133 $x {Tags:["line_outline"],Invulnerable: 1b,ShowArms: 0b, NoGravity: 0b, DisabledSlots: 2039583, Invisible: 1b}
+summon armor_stand $x 133 $x_2 {Tags:["line_outline"],Invulnerable: 1b,ShowArms: 0b, NoGravity: 0b, DisabledSlots: 2039583, Invisible: 1b}
+#end
+summon armor_stand 41 133 41 {Tags:["line","end"],Invulnerable: 1b,ShowArms: 0b, NoGravity: 0b, DisabledSlots: 2039583, Invisible: 1b}

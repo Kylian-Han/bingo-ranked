@@ -1,0 +1,17 @@
+kill @e[type=armor_stand,tag=bingo]
+#set($x = -48)
+#foreach($i in [0..4])
+    #set($z = -48)
+    #foreach($j in [0..4])
+        #set($index = 1 + $i + $j*5)
+summon armor_stand $x 117 $z {NoGravity:1b,Invulnerable:1b,Small:1b,Marker:1b,Invisible:1b,PersistenceRequired:1b,Tags:["$index","bingo"]}
+        #set($z = $z + 20)
+    #end
+    #set($x = $x + 20)
+#end
+schedule function flytre:randomize_board/activate25 270t
+schedule function flytre:randomize_board/activate2 280t
+#foreach($i in [1..25])
+    #set($ten_i = 10 * $i)
+schedule function flytre:randomize_board/structure/$i ${ten_i}t
+#end

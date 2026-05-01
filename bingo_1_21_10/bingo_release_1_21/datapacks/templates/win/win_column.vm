@@ -1,0 +1,4 @@
+function flytre:win/$team
+execute at @e[tag=$number] positioned ~7 ~ ~6 run function flytre:line/$type
+schedule function flytre:line/$team/draw 7s
+schedule function flytre:line/$team/draw_kill 9s

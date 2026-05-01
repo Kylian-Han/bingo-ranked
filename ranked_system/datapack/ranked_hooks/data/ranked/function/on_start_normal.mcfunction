@@ -1,0 +1,1 @@
+rankedreport start normal

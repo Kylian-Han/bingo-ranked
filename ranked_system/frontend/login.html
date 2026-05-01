@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Login — Bingo Ranked</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="js/config.js"></script>
+</head>
+<body>
+  <header class="site-header"></header>
+  <main>
+    <div class="container">
+      <h1>Login</h1>
+      <p class="subtitle">Welcome back. Sign in to manage your linked Minecraft account.</p>
+
+      <div class="card" style="max-width: 420px;">
+        <div id="alert"></div>
+        <form id="login-form" class="form" autocomplete="on" novalidate>
+          <label>
+            Username
+            <input type="text" name="username" required autocomplete="username" minlength="3" maxlength="20" />
+          </label>
+          <label>
+            Password
+            <input type="password" name="password" required autocomplete="current-password" minlength="10" maxlength="200" />
+          </label>
+          <button class="btn" type="submit" id="submit">Sign in</button>
+          <p class="muted" style="margin: 4px 0 0; font-size: 14px;">
+            New here? <a href="register.html">Create an account</a>
+          </p>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script>
+    window.ui.renderHeader('login.html');
+
+    const form = document.getElementById('login-form');
+    const submit = document.getElementById('submit');
+
+    function next() {
+      const params = new URLSearchParams(location.search);
+      const target = params.get('next') || 'dashboard.html';
+      // Only allow same-directory targets — defense against open-redirect.
+      if (/^[a-z0-9_\-.]+\.html$/i.test(target)) location.href = target;
+      else location.href = 'dashboard.html';
+    }
+
+    if (window.api.isLoggedIn()) next();
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      window.ui.hideAlert('#alert');
+      submit.disabled = true;
+      const data = Object.fromEntries(new FormData(form));
+      try {
+        await window.api.login(data);
+        next();
+      } catch (err) {
+        const msg = err.status === 401 ? 'Invalid username or password.'
+          : err.status === 429 ? 'Too many attempts. Wait a few minutes.'
+          : 'Login failed. Please try again.';
+        window.ui.showAlert('#alert', msg, 'error');
+      } finally {
+        submit.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

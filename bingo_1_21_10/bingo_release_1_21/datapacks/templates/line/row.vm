@@ -1,0 +1,14 @@
+#foreach($x in $intloop_n42_41)
+summon armor_stand $x 133 ~-2 {Tags:["line_outline"],Invulnerable: 1b,ShowArms: 0b, NoGravity: 0b, DisabledSlots: 2039583, Invisible: 1b}
+summon armor_stand $x 133 ~-1 {Tags:["line_outline"],Invulnerable: 1b,ShowArms: 0b, NoGravity: 0b, DisabledSlots: 2039583, Invisible: 1b}
+summon armor_stand $x 133 ~ {Tags:["line"],Invulnerable: 1b,ShowArms: 0b, NoGravity: 0b, DisabledSlots: 2039583, Invisible: 1b}
+summon armor_stand $x 133 ~1 {Tags:["line"],Invulnerable: 1b,ShowArms: 0b, NoGravity: 0b, DisabledSlots: 2039583, Invisible: 1b}
+#end
+summon armor_stand -43 133 ~-2 {Tags:["line_outline"],Invulnerable: 1b,ShowArms: 0b, NoGravity: 0b, DisabledSlots: 2039583, Invisible: 1b}
+summon armor_stand -43 133 ~-1 {Tags:["line_outline"],Invulnerable: 1b,ShowArms: 0b, NoGravity: 0b, DisabledSlots: 2039583, Invisible: 1b}
+summon armor_stand -43 133 ~ {Tags:["line_outline"],Invulnerable: 1b,ShowArms: 0b, NoGravity: 0b, DisabledSlots: 2039583, Invisible: 1b}
+summon armor_stand -43 133 ~1 {Tags:["line_outline"],Invulnerable: 1b,ShowArms: 0b, NoGravity: 0b, DisabledSlots: 2039583, Invisible: 1b}
+summon armor_stand 42 133 ~-2 {Tags:["line_outline"],Invulnerable: 1b,ShowArms: 0b, NoGravity: 0b, DisabledSlots: 2039583, Invisible: 1b}
+summon armor_stand 42 133 ~-1 {Tags:["line_outline"],Invulnerable: 1b,ShowArms: 0b, NoGravity: 0b, DisabledSlots: 2039583, Invisible: 1b}
+summon armor_stand 42 133 ~ {Tags:["line_outline"],Invulnerable: 1b,ShowArms: 0b, NoGravity: 0b, DisabledSlots: 2039583, Invisible: 1b}
+summon armor_stand 42 133 ~1 {Tags:["line_outline"],Invulnerable: 1b,ShowArms: 0b, NoGravity: 0b, DisabledSlots: 2039583, Invisible: 1b}

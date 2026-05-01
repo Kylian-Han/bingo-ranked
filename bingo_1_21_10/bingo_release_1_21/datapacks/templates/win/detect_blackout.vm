@@ -1,0 +1,8 @@
+#foreach($team in $teams)
+    #foreach($row in $intloop_1_5_1)
+execute#foreach($i in $intloop_1_25_1) if score $team board_$i matches 1#end run function flytre:win/$team/row/$row
+execute#foreach($i in $intloop_1_25_1) if score $team board_$i matches 1#end run function flytre:win/$team/column/$row
+    #end
+execute#foreach($i in $intloop_1_25_1) if score $team board_$i matches 1#end run function flytre:win/$team/diagonal
+execute#foreach($i in $intloop_1_25_1) if score $team board_$i matches 1#end run function flytre:win/$team/reverse_diagonal
+#end

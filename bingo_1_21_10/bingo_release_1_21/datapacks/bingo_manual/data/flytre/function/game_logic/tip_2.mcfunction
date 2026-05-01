@@ -1,0 +1,1 @@
+tellraw @a ["",{"text":"2. ","color":"gold"}," Use ",{"text":"/trigger ","color":"gold"},{"text":"team_tp","color":"green"},{"text":" to ","color":"white"},{"text":"teleport ","color":"green"},"to a random teammate."]

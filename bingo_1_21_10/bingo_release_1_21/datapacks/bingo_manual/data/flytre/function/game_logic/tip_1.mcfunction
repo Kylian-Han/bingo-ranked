@@ -1,0 +1,1 @@
+tellraw @a ["",{"text":"1. ","color":"gold"}," Use ",{"text":"/trigger ","color":"gold"},{"text":"clarify","color":"green"},{"text":" set [1-25]","color":"gold"},{"text":" to ","color":"white"},{"text":"identify ","color":"green"},"an item on the board."]
