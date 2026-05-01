@@ -37,7 +37,7 @@ export const config = {
 
   rateLimit: {
     authMax: int('RATE_LIMIT_AUTH_MAX', 5),
-    authWindowMs: int('RATE_LIMIT_AUTH_WINDOW_MS', 15 * 60 * 1000),
+    authWindowMs: int('RATE_LIMIT_AUTH_WINDOW_MS', 10 * 60 * 1000),
   },
 };
 

@@ -24,6 +24,14 @@ public class Config {
     public String hmacKey = "REPLACE_WITH_SHARED_SECRET";
     public boolean reportingEnabled = true;
 
+    // Freeze unlinked players and teleport them to spawn until they /link.
+    public boolean freezeUnlinkedPlayers = true;
+    public double spawnX = 182.50;
+    public double spawnY = 135.00;
+    public double spawnZ = 81.00;
+    public float spawnYaw = -91.46f;
+    public float spawnPitch = 90.00f;
+
     public static Config load() {
         Path path = FabricLoader.getInstance().getConfigDir().resolve("ranked_bingo.json");
         try {

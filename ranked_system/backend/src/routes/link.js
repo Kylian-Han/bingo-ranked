@@ -127,4 +127,19 @@ router.delete('/', requireAuth, (req, res, next) => {
   }
 });
 
+// --- Mod → backend: check whether a given MC UUID is linked. -----------------
+// Called at player login to populate the in-game freeze cache.
+router.get('/status/:mc_uuid', verifyModHmac, (req, res, next) => {
+  try {
+    const { mc_uuid } = req.params;
+    if (!mc_uuid || !/^[0-9a-f-]{32,36}$/i.test(mc_uuid)) {
+      return res.status(400).json({ error: 'invalid_uuid' });
+    }
+    const row = findMcByUuid.get(mc_uuid);
+    res.json({ linked: !!row });
+  } catch (e) {
+    next(e);
+  }
+});
+
 export default router;

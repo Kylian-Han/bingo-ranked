@@ -19,7 +19,10 @@ const authLimiter = rateLimit({
   max: config.rateLimit.authMax,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
-  message: { error: 'too_many_requests' },
+  message: (req, res) => ({
+    error: 'too_many_requests',
+    retry_after_seconds: Math.ceil(config.rateLimit.authWindowMs / 1000),
+  }),
 });
 
 const insertUser = db.prepare(`

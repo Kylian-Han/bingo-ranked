@@ -82,6 +82,36 @@ public class BackendClient {
                 });
     }
 
+    public CompletableFuture<HttpResponse<String>> getSigned(String path) {
+        if (!config.isUsable()) {
+            CompletableFuture<HttpResponse<String>> failed = new CompletableFuture<>();
+            failed.completeExceptionally(new IllegalStateException("RankedBingo not configured"));
+            return failed;
+        }
+        long timestamp = System.currentTimeMillis();
+        String nonce = randomHex(16);
+        // Empty body for GET — HMAC payload is "{timestamp}.{nonce}."
+        String signature = sign(timestamp, nonce, "");
+
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create(config.backendUrl + path))
+                .timeout(Duration.ofSeconds(15))
+                .header("X-Timestamp", Long.toString(timestamp))
+                .header("X-Nonce", nonce)
+                .header("X-Signature", signature)
+                .GET()
+                .build();
+
+        return http.sendAsync(req, HttpResponse.BodyHandlers.ofString())
+                .whenComplete((res, err) -> {
+                    if (err != null) {
+                        LOGGER.warn("[ranked_bingo] GET {} failed: {}", path, err.toString());
+                    } else if (res.statusCode() >= 400) {
+                        LOGGER.warn("[ranked_bingo] GET {} → {} — {}", path, res.statusCode(), res.body());
+                    }
+                });
+    }
+
     private String sign(long timestamp, String nonce, String body) {
         try {
             Mac mac = Mac.getInstance("HmacSHA256");

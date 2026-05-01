@@ -8,7 +8,7 @@ export const usernameSchema = z
 
 export const passwordSchema = z
   .string()
-  .min(10, 'Password must be at least 10 characters')
+  .min(6, 'Password must be at least 6 characters')
   .max(200, 'Password is too long');
 
 export const registerSchema = z.object({

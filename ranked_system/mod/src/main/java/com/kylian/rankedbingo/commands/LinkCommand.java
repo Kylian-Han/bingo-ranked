@@ -1,6 +1,7 @@
 package com.kylian.rankedbingo.commands;
 
 import com.google.gson.Gson;
+import com.kylian.rankedbingo.FreezeManager;
 import com.kylian.rankedbingo.RankedBingo;
 import com.kylian.rankedbingo.api.Dtos;
 import com.mojang.brigadier.CommandDispatcher;
@@ -56,8 +57,12 @@ public class LinkCommand {
                             }
                             mcServer.execute(() -> sendCodeMessage(player, code, ttl));
                         } else if (status == 409) {
-                            mcServer.execute(() ->
-                                    player.sendMessage(net.minecraft.text.Text.literal("Your Minecraft account is already linked. Use the website to unlink first.").formatted(net.minecraft.util.Formatting.RED), false));
+                            // Already linked — update cache in case they joined before the check resolved.
+                            RankedBingo.LINK_CACHE.markLinked(player.getUuid());
+                            mcServer.execute(() -> {
+                                FreezeManager.unfreeze(player);
+                                player.sendMessage(net.minecraft.text.Text.literal("Your Minecraft account is already linked. Use the website to unlink first.").formatted(net.minecraft.util.Formatting.RED), false);
+                            });
                         } else {
                             LOGGER.warn("[ranked_bingo] /link returned {} — {}", status, responseBody);
                             mcServer.execute(() ->
