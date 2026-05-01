@@ -12,6 +12,14 @@ apt update && apt upgrade -y
 apt install -y curl git screen ufw
 ```
 
+### Utilisateur système dédié
+
+```bash
+useradd -r -m -d /opt/mc -s /bin/bash mc
+```
+
+Tous les services (backend + Minecraft) tournent sous cet utilisateur, jamais root.
+
 ### Java 21
 
 ```bash
@@ -43,14 +51,61 @@ Le backend écoute sur `localhost:3000` uniquement — pas besoin d'ouvrir ce po
 
 ---
 
-## 3. Backend Node.js
+## 3. Nginx (reverse proxy)
+
+```bash
+apt install -y nginx
+```
+
+```bash
+nano /etc/nginx/sites-available/bingo-backend
+```
+
+```nginx
+server {
+    listen 80;
+    server_name bingo-petitenc.duckdns.org;
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /health {
+        proxy_pass http://127.0.0.1:3000;
+    }
+}
+```
+
+```bash
+ln -s /etc/nginx/sites-available/bingo-backend /etc/nginx/sites-enabled/
+rm -f /etc/nginx/sites-enabled/default
+nginx -t
+systemctl enable nginx
+systemctl start nginx
+```
+
+Vérifier que le frontend atteint le backend :
+```bash
+curl http://bingo-petitenc.duckdns.org/health
+# → {"ok":true,"env":"production"}
+```
+
+---
+
+## 4. Backend Node.js
 
 ### Copier les fichiers
 
 ```bash
 mkdir -p /opt/backend
+chown mc:mc /opt/backend
 # Depuis ta machine locale :
 scp -r ranked_system/backend/* root@<IP>:/opt/backend/
+chown -R mc:mc /opt/backend
 ```
 
 ### Variables d'environnement
@@ -79,8 +134,10 @@ ALLOWED_ORIGINS=https://kylian-han.github.io
 ### Installer les dépendances
 
 ```bash
+apt install -y build-essential python3
 cd /opt/backend
-npm install --omit=dev
+sudo -u mc npm install --omit=dev
+sudo -u mc npm rebuild better-sqlite3
 ```
 
 ### Service systemd
@@ -101,7 +158,9 @@ ExecStart=/usr/bin/node src/index.js
 EnvironmentFile=/opt/backend/.env
 Restart=always
 RestartSec=5
-User=root
+User=mc
+NoNewPrivileges=true
+PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target
@@ -120,12 +179,13 @@ curl http://localhost:3000/health
 
 ---
 
-## 4. Serveur Minecraft
+## 5. Serveur Minecraft
 
-### Créer l'utilisateur et le dossier
+### Créer le dossier
 
 ```bash
 mkdir -p /opt/minecraft/{mods,config,logs}
+chown -R mc:mc /opt/minecraft
 ```
 
 ### Fabric Server
@@ -146,19 +206,62 @@ echo "eula=true" > eula.txt
 ```bash
 # Depuis ta machine locale :
 scp ranked_system/mod/build/libs/ranked-bingo-0.1.0.jar root@<IP>:/opt/minecraft/mods/
-# Télécharger Fabric API sur https://modrinth.com/mod/fabric-api et uploader aussi
+scp fabric-api-0.138.4+1.21.10.jar root@<IP>:/opt/minecraft/mods/
+```
+
+### Map + datapacks bingo
+
+```bash
+# Depuis ta machine locale — upload la map sous un nom temporaire :
+scp -r bingo_1_21_10/bingo_release_1_21 root@<IP>:/opt/minecraft/bingo_release_1_21
+# Depuis ta machine locale — ajouter le datapack ranked :
+scp -r ranked_system/datapack/ranked_hooks root@<IP>:/opt/minecraft/bingo_release_1_21/datapacks/
+# Sur le serveur — supprimer le world vide généré au premier boot, placer la map, corriger les permissions :
+ssh root@<IP> "rm -rf /opt/minecraft/world && mv /opt/minecraft/bingo_release_1_21 /opt/minecraft/world && chown -R mc:mc /opt/minecraft/world"
 ```
 
 ### Démarrer une première fois pour générer la config
 
 ```bash
 cd /opt/minecraft
-java -Xms1G -Xmx3G -jar fabric-server-launch.jar nogui
-# Attendre que ça démarre puis Ctrl+C
+sudo -u mc screen -dmS minecraft java -Xms2G -Xmx6G -jar fabric-server-launch.jar nogui
+```
+
+Attendre ~30s que le serveur démarre, puis rattacher le screen pour vérifier :
+
+```bash
+sudo -u mc screen -r minecraft
+# Ctrl+A puis D pour détacher sans couper le serveur
+```
+
+### Op / whitelist
+
+Une fois dans la console MC (via `screen -r` ci-dessus) :
+
+```
+op <ton_pseudo>
+whitelist add <pseudo>
+whitelist on
+```
+
+Puis détacher : `Ctrl+A` puis `D`.
+
+```
+op <ton_pseudo>
+whitelist add <pseudo>
+whitelist on
 ```
 
 ### Config du mod
 
+⚠️ **Étape bloquante** — sans ça le `/link` et les reports échouent avec `bad_signature`.
+
+Récupérer la clé générée dans le `.env` backend :
+```bash
+grep MOD_HMAC_KEY /opt/backend/.env
+```
+
+Puis remplir la config :
 ```bash
 nano /opt/minecraft/config/ranked_bingo.json
 ```
@@ -166,19 +269,14 @@ nano /opt/minecraft/config/ranked_bingo.json
 ```json
 {
   "backendUrl": "http://127.0.0.1:3000/api",
-  "hmacKey": "<le MOD_HMAC_KEY du .env backend>",
+  "hmacKey": "<valeur exacte de MOD_HMAC_KEY dans /opt/backend/.env>",
   "reportingEnabled": true
 }
 ```
 
-### Datapack ranked_hooks
+### Service systemd Minecraft (avec screen)
 
-```bash
-# Depuis ta machine locale :
-scp -r ranked_system/datapack/ranked_hooks root@<IP>:/opt/minecraft/world/datapacks/
-```
-
-### Service systemd Minecraft
+Le service lance le serveur dans un screen, ce qui permet d'accéder à la console MC directement.
 
 ```bash
 nano /etc/systemd/system/minecraft.service
@@ -190,12 +288,14 @@ Description=Minecraft Bingo Server
 After=network.target bingo-backend.service
 
 [Service]
-Type=simple
+Type=forking
+User=mc
 WorkingDirectory=/opt/minecraft
-ExecStart=/usr/bin/java -Xms1G -Xmx3G -jar fabric-server-launch.jar nogui
+ExecStart=/usr/bin/screen -dmS minecraft java -Xms2G -Xmx6G -jar fabric-server-launch.jar nogui
+ExecStop=/usr/bin/screen -S minecraft -X stuff "stop\n"
 Restart=on-failure
 RestartSec=10
-User=root
+NoNewPrivileges=true
 
 [Install]
 WantedBy=multi-user.target
@@ -207,9 +307,15 @@ systemctl enable minecraft
 systemctl start minecraft
 ```
 
+**Accéder à la console MC :**
+```bash
+sudo -u mc screen -r minecraft
+# Ctrl+A puis D pour détacher
+```
+
 ---
 
-## 5. Vérifications finales
+## 6. Vérifications finales
 
 ```bash
 # Backend OK
@@ -228,7 +334,7 @@ En jeu :
 
 ---
 
-## 6. Mise à jour du mod
+## 7. Mise à jour du mod
 
 ```bash
 # Depuis ta machine locale :
@@ -236,7 +342,7 @@ scp ranked_system/mod/build/libs/ranked-bingo-0.1.0.jar root@<IP>:/opt/minecraft
 systemctl restart minecraft
 ```
 
-## 7. Mise à jour du backend
+## 8. Mise à jour du backend
 
 ```bash
 # Depuis ta machine locale :

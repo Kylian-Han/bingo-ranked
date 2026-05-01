@@ -7,6 +7,8 @@ import com.mojang.brigadier.CommandDispatcher;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.text.ClickEvent;
+import net.minecraft.text.HoverEvent;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 
@@ -98,7 +100,10 @@ public class LinkCommand {
 
     private static void sendCodeMessage(ServerPlayerEntity player, String code, long ttlSec) {
         long minutes = ttlSec / 60;
-        Text codePart = Text.literal(code).formatted(Formatting.AQUA, Formatting.BOLD);
+        Text codePart = Text.literal(code).formatted(Formatting.AQUA, Formatting.BOLD)
+                .styled(s -> s
+                        .withClickEvent(new ClickEvent(ClickEvent.Action.COPY_TO_CLIPBOARD, code))
+                        .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Text.literal("Click to copy"))));
         Text line1 = Text.literal("Your link code: ").formatted(Formatting.GREEN).append(codePart);
         Text line2 = Text.literal("Paste it on the website within " + minutes + " minutes.").formatted(Formatting.GRAY);
         player.sendMessage(line1, false);
