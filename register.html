@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sign up — Bingo Ranked</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="js/config.js"></script>
+</head>
+<body>
+  <header class="site-header"></header>
+  <main>
+    <div class="container">
+      <h1>Create an account</h1>
+      <p class="subtitle">Pick a username and a strong password. You'll link your Minecraft account from the dashboard once registered.</p>
+
+      <div class="card" style="max-width: 420px;">
+        <div id="alert"></div>
+        <form id="register-form" class="form" autocomplete="on" novalidate>
+          <label>
+            Username
+            <input type="text" name="username" required autocomplete="username"
+                   pattern="[a-zA-Z0-9_\-]{3,20}" minlength="3" maxlength="20" />
+            <small class="muted">3–20 characters · letters, digits, _ or -</small>
+          </label>
+          <label>
+            Password
+            <input type="password" name="password" required autocomplete="new-password" minlength="10" maxlength="200" />
+            <small class="muted">At least 10 characters. A passphrase like four random words is best.</small>
+          </label>
+          <label>
+            Confirm password
+            <input type="password" name="passwordConfirm" required minlength="10" maxlength="200" />
+          </label>
+          <button class="btn" type="submit" id="submit">Create account</button>
+          <p class="muted" style="margin: 4px 0 0; font-size: 14px;">
+            Already have an account? <a href="login.html">Sign in</a>
+          </p>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script>
+    window.ui.renderHeader('register.html');
+
+    const form = document.getElementById('register-form');
+    const submit = document.getElementById('submit');
+
+    if (window.api.isLoggedIn()) location.href = 'dashboard.html';
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      window.ui.hideAlert('#alert');
+
+      const data = Object.fromEntries(new FormData(form));
+      if (data.password !== data.passwordConfirm) {
+        window.ui.showAlert('#alert', 'Passwords do not match.', 'error');
+        return;
+      }
+      const payload = { username: data.username, password: data.password };
+
+      submit.disabled = true;
+      try {
+        await window.api.register(payload);
+        location.href = 'dashboard.html';
+      } catch (err) {
+        const code = err?.data?.error;
+        let msg = 'Registration failed. Please try again.';
+        if (code === 'username_taken') msg = 'That username is already taken.';
+        else if (code === 'registration_conflict') msg = 'Username or email already in use.';
+        else if (code === 'validation_error') {
+          const issue = err.data.issues?.[0];
+          msg = issue ? `${issue.path}: ${issue.message}` : 'Invalid input.';
+        } else if (err.status === 429) msg = 'Too many attempts. Wait a few minutes.';
+        window.ui.showAlert('#alert', msg, 'error');
+      } finally {
+        submit.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dashboard — Bingo Ranked</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="js/config.js"></script>
+</head>
+<body>
+  <header class="site-header"></header>
+  <main>
+    <div class="container">
+      <h1>Dashboard</h1>
+      <p class="subtitle" id="welcome">Manage your linked Minecraft account and view your stats.</p>
+
+      <div class="card" id="link-card">
+        <div class="skeleton" style="height: 24px;"></div>
+      </div>
+
+      <div id="profile-card-wrap"></div>
+    </div>
+  </main>
+
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script>
+    (async function () {
+      window.ui.renderHeader('dashboard.html');
+      if (!window.ui.requireLogin()) return;
+
+      const linkCard = document.getElementById('link-card');
+      const welcome = document.getElementById('welcome');
+
+      let me;
+      try {
+        me = await window.api.me();
+      } catch {
+        await window.api.logout();
+        location.href = 'login.html';
+        return;
+      }
+      welcome.textContent = `Logged in as ${me.user.username}.`;
+
+      function renderLinkCard() {
+        window.ui.clear(linkCard);
+        const mc = me.mc_account;
+
+        if (mc) {
+          linkCard.appendChild(window.ui.el('h2', { text: 'Minecraft account' }));
+          linkCard.appendChild(window.ui.el('p', {}, [
+            'Linked to ',
+            window.ui.el('strong', { text: mc.mc_username }),
+            ' since ',
+            window.ui.formatRelative(mc.linked_at),
+            '.',
+          ]));
+          const unlink = window.ui.el('button', {
+            class: 'btn danger', type: 'button', text: 'Unlink',
+            onClick: async () => {
+              if (!confirm('Unlink your Minecraft account? Your past games stay on the leaderboard.')) return;
+              unlink.disabled = true;
+              try {
+                await window.api.unlink();
+                me = await window.api.me();
+                renderLinkCard();
+                renderProfile();
+              } catch {
+                alert('Failed to unlink. Try again.');
+              } finally {
+                unlink.disabled = false;
+              }
+            },
+          });
+          linkCard.appendChild(unlink);
+          return;
+        }
+
+        linkCard.appendChild(window.ui.el('h2', { text: 'Link your Minecraft account' }));
+        linkCard.appendChild(window.ui.el('p', { class: 'muted' }, [
+          'Run ',
+          window.ui.el('code', { text: '/link' }),
+          ' on the Minecraft server. You\'ll get a one-time code — paste it here within 5 minutes.',
+        ]));
+        const alertBox = window.ui.el('div', { id: 'redeem-alert' });
+        const input = window.ui.el('input', {
+          type: 'text', name: 'code', placeholder: 'ABCD-EFGH',
+          maxlength: '16', autocomplete: 'off',
+          style: 'text-transform: uppercase; letter-spacing: 2px; font-family: var(--mono);',
+        });
+        const submit = window.ui.el('button', {
+          class: 'btn', type: 'submit', text: 'Link account',
+        });
+        const form = window.ui.el('form', {
+          class: 'form',
+          onSubmit: async (e) => {
+            e.preventDefault();
+            window.ui.hideAlert('#redeem-alert');
+            submit.disabled = true;
+            try {
+              await window.api.redeemLink(input.value.trim());
+              me = await window.api.me();
+              renderLinkCard();
+              renderProfile();
+            } catch (err) {
+              const code = err?.data?.error;
+              const msgMap = {
+                code_not_found: 'Code not found. Check it and try again.',
+                code_expired: 'This code has expired. Run /link again in-game.',
+                code_already_used: 'This code has already been used.',
+                account_already_linked: 'You already have an MC account linked.',
+                mc_already_linked: 'This Minecraft account is linked to another site account.',
+              };
+              window.ui.showAlert('#redeem-alert', msgMap[code] ?? 'Could not link account.', 'error');
+            } finally {
+              submit.disabled = false;
+            }
+          },
+        }, [
+          window.ui.el('label', {}, ['Link code', input]),
+          submit,
+          alertBox,
+        ]);
+        linkCard.appendChild(form);
+      }
+
+      function renderProfile() {
+        const wrap = document.getElementById('profile-card-wrap');
+        window.ui.clear(wrap);
+        if (!me.mc_account) return;
+        const link = window.ui.el('a', {
+          href: `player.html?id=${encodeURIComponent(me.user.username)}`,
+          text: 'View your full profile →',
+        });
+        const card = window.ui.el('div', { class: 'card' }, [
+          window.ui.el('h2', { text: 'Your stats' }),
+          window.ui.el('p', { class: 'muted', text: 'Quick access to your detailed profile page.' }),
+          link,
+        ]);
+        wrap.appendChild(card);
+      }
+
+      renderLinkCard();
+      renderProfile();
+    })();
+  </script>
+</body>
+</html>
