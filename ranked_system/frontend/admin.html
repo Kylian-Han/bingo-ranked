@@ -345,6 +345,13 @@
         const actions = window.ui.el('div', { class: 'actions-cell' });
 
         if (u.mc_username) {
+          const resetBtn = window.ui.el('button', {
+            class: 'btn secondary sm',
+            text: 'Reset stats',
+            onClick: () => handleResetStats(u.id, u.username, resetBtn),
+          });
+          actions.appendChild(resetBtn);
+
           const unlinkBtn = window.ui.el('button', {
             class: 'btn secondary sm',
             text: 'Unlink MC',
@@ -373,6 +380,20 @@
       }
 
       wrap.appendChild(window.ui.el('table', {}, [head, body]));
+    }
+
+    async function handleResetStats(userId, username, btn) {
+      if (!confirm(`Reset toutes les stats de "${username}" ? Ses participations aux parties seront supprimées (les autres joueurs ne sont pas affectés).`)) return;
+      btn.disabled = true;
+      window.ui.hideAlert('#users-alert');
+      try {
+        const { deleted } = await internalRequest('/users/' + userId + '/stats', { method: 'DELETE' });
+        window.ui.showAlert('#users-alert', `Stats de "${username}" réinitialisées (${deleted} entrée(s) supprimée(s)).`, 'success');
+        await loadUsers();
+      } catch (e) {
+        window.ui.showAlert('#users-alert', 'Erreur : ' + e.message, 'error');
+        btn.disabled = false;
+      }
     }
 
     async function handleUnlink(userId, username, btn) {

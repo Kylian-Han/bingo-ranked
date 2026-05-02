@@ -54,6 +54,7 @@ const deleteGame = db.prepare('DELETE FROM bingo_games WHERE id = ?');
 const deleteGameParticipants = db.prepare('DELETE FROM game_participants WHERE game_id = ?');
 
 const unlinkMc = db.prepare('DELETE FROM mc_accounts WHERE user_id = ?');
+const resetParticipants = db.prepare('DELETE FROM game_participants WHERE mc_uuid = ?');
 
 // ── GET /api/admin/users ──────────────────────────────────────────────────────
 
@@ -79,6 +80,20 @@ router.delete('/users/:id', (req, res) => {
   })();
 
   res.json({ ok: true });
+});
+
+// ── DELETE /api/admin/users/:id/stats ────────────────────────────────────────
+
+router.delete('/users/:id/stats', (req, res) => {
+  const id = Number(req.params.id);
+  if (!id) return res.status(400).json({ error: 'invalid_id' });
+
+  const user = getUser.get(id);
+  if (!user) return res.status(404).json({ error: 'not_found' });
+  if (!user.mc_uuid) return res.status(400).json({ error: 'not_linked' });
+
+  const { changes } = resetParticipants.run(user.mc_uuid);
+  res.json({ ok: true, deleted: changes });
 });
 
 // ── DELETE /api/admin/users/:id/link ─────────────────────────────────────────
