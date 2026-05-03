@@ -11,13 +11,11 @@ const listUsers = db.prepare(`
   SELECT
     u.id, u.username, u.email, u.is_admin, u.created_at,
     mc.mc_uuid, mc.mc_username, mc.linked_at,
-    pr.elo, pr.peak_elo,
     COUNT(DISTINCT gp.game_id) AS games,
     SUM(CASE WHEN gp.is_winner THEN 1 ELSE 0 END) AS wins
   FROM users u
   LEFT JOIN mc_accounts mc ON mc.user_id = u.id
   LEFT JOIN game_participants gp ON gp.mc_uuid = mc.mc_uuid
-  LEFT JOIN player_ratings pr ON pr.mc_uuid = mc.mc_uuid
   GROUP BY u.id
   ORDER BY u.created_at DESC
 `);
@@ -65,52 +63,61 @@ const resetRating = db.prepare('DELETE FROM player_ratings WHERE mc_uuid = ?');
 const participantsOfGame = db.prepare(
   'SELECT mc_uuid FROM game_participants WHERE game_id = ?',
 );
+// Last Elo entry per (player, mode) after a game deletion.
 const lastEloAfterStmt = db.prepare(`
-  SELECT eh.elo_after, eh.is_winner
+  SELECT eh.elo_after, eh.mode
   FROM elo_history eh
   JOIN bingo_games g ON g.id = eh.game_id
-  WHERE eh.mc_uuid = ?
+  WHERE eh.mc_uuid = ? AND eh.mode = ?
   ORDER BY g.ended_at DESC, eh.id DESC
   LIMIT 1
 `);
-const aggregatesForUuid = db.prepare(`
+// All modes a player has history in (to rebuild each one after a deletion).
+const modesForUuidStmt = db.prepare(`
+  SELECT DISTINCT mode FROM elo_history WHERE mc_uuid = ?
+`);
+const aggregatesForUuidMode = db.prepare(`
   SELECT
     COUNT(*) AS games,
     SUM(p.is_winner) AS wins,
     MAX(eh.elo_after) AS peak_elo
   FROM game_participants p
+  JOIN bingo_games g ON g.id = p.game_id
   LEFT JOIN elo_history eh ON eh.game_id = p.game_id AND eh.mc_uuid = p.mc_uuid
-  WHERE p.mc_uuid = ?
+  WHERE p.mc_uuid = ? AND g.mode = ?
 `);
 const upsertRatingFromAggregate = db.prepare(`
-  INSERT INTO player_ratings (mc_uuid, elo, peak_elo, games, wins, updated_at)
-  VALUES (@mc_uuid, @elo, @peak_elo, @games, @wins, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-  ON CONFLICT(mc_uuid) DO UPDATE SET
+  INSERT INTO player_ratings (mc_uuid, mode, elo, peak_elo, games, wins, updated_at)
+  VALUES (@mc_uuid, @mode, @elo, @peak_elo, @games, @wins, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  ON CONFLICT(mc_uuid, mode) DO UPDATE SET
     elo = excluded.elo,
     peak_elo = excluded.peak_elo,
     games = excluded.games,
     wins = excluded.wins,
     updated_at = excluded.updated_at
 `);
+const deleteRatingForMode = db.prepare('DELETE FROM player_ratings WHERE mc_uuid = ? AND mode = ?');
 
 function rebuildRatingFromHistory(mcUuid) {
-  // After a game deletion, the ON DELETE CASCADE wipes the corresponding
-  // elo_history row. We recover the player's current rating from their last
-  // remaining history entry; if none remain, drop the rating row entirely so
-  // they're back to STARTING_ELO on next match.
-  const last = lastEloAfterStmt.get(mcUuid);
-  const agg = aggregatesForUuid.get(mcUuid);
-  if (!last || !agg || agg.games === 0) {
-    resetRating.run(mcUuid);
-    return;
+  // Rebuild each mode's rating independently from the remaining elo_history.
+  // If no history remains for a mode, drop that mode's rating row.
+  const modes = modesForUuidStmt.all(mcUuid).map((r) => r.mode);
+  for (const mode of modes) {
+    const last = lastEloAfterStmt.get(mcUuid, mode);
+    const agg = aggregatesForUuidMode.get(mcUuid, mode);
+    if (!last || !agg || agg.games === 0) {
+      deleteRatingForMode.run(mcUuid, mode);
+      continue;
+    }
+    upsertRatingFromAggregate.run({
+      mc_uuid: mcUuid,
+      mode,
+      elo: last.elo_after,
+      peak_elo: agg.peak_elo ?? last.elo_after,
+      games: agg.games,
+      wins: agg.wins ?? 0,
+    });
   }
-  upsertRatingFromAggregate.run({
-    mc_uuid: mcUuid,
-    elo: last.elo_after,
-    peak_elo: agg.peak_elo ?? last.elo_after,
-    games: agg.games,
-    wins: agg.wins ?? 0,
-  });
 }
 
 // ── GET /api/admin/users ──────────────────────────────────────────────────────
