@@ -66,6 +66,9 @@ execute at @e[tag=bingo] positioned ~ ~-18 ~ run fill ~ ~ ~ ~15 ~ ~15 iron_block
 schedule function flytre:game_logic/start_1 20s replace
 schedule function flytre:game_logic/start_0b 5s replace
 
-execute unless score item_set stage matches 1.. run function ranked:on_start_normal
-execute if score item_set stage matches 1 run function ranked:on_start_speed
-execute if score item_set stage matches 2 run function ranked:on_start_nether
+execute if score lockout stage matches 0 unless score item_set stage matches 1.. run function ranked:on_start_normal
+execute if score lockout stage matches 0 if score item_set stage matches 1 run function ranked:on_start_speed
+execute if score lockout stage matches 0 if score item_set stage matches 2 run function ranked:on_start_nether
+execute if score lockout stage matches 1 run function ranked:on_start_lockout
+execute if score lockout stage matches 2 run function ranked:on_start_manhunt
+execute if score lockout stage matches 3 run function ranked:on_start_blackout
