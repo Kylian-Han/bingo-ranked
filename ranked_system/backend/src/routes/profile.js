@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { db } from '../db/database.js';
 import { HttpError } from '../middleware/error.js';
+import { STARTING_ELO } from '../utils/elo.js';
 
 const router = Router();
 
@@ -26,11 +27,14 @@ const summaryStmt = db.prepare(`
     u.username AS site_username,
     u.created_at AS site_created_at,
     m.linked_at,
+    pr.elo,
+    pr.peak_elo,
     COUNT(*) AS games,
     SUM(p.is_winner) AS wins
   FROM game_participants p
   LEFT JOIN mc_accounts m ON m.mc_uuid = p.mc_uuid
   LEFT JOIN users u ON u.id = m.user_id
+  LEFT JOIN player_ratings pr ON pr.mc_uuid = p.mc_uuid
   WHERE p.mc_uuid = ?
   GROUP BY p.mc_uuid
 `);
@@ -49,9 +53,11 @@ const winsByModeStmt = db.prepare(`
 const recentGamesStmt = db.prepare(`
   SELECT g.id, g.game_uuid, g.mode, g.started_at, g.ended_at, g.duration_seconds,
          g.winning_team, g.win_condition,
-         p.team AS player_team, p.is_winner AS player_won
+         p.team AS player_team, p.is_winner AS player_won,
+         eh.elo_before, eh.elo_after, eh.delta
   FROM game_participants p
   JOIN bingo_games g ON g.id = p.game_id
+  LEFT JOIN elo_history eh ON eh.game_id = g.id AND eh.mc_uuid = p.mc_uuid
   WHERE p.mc_uuid = ?
   ORDER BY g.ended_at DESC
   LIMIT ?
@@ -76,6 +82,16 @@ const avgRecentDurationStmt = db.prepare(`
     ORDER BY g.ended_at DESC
     LIMIT ?
   )
+`);
+
+// Full Elo timeline (oldest first) for graphing on the profile page.
+const eloHistoryStmt = db.prepare(`
+  SELECT eh.elo_before, eh.elo_after, eh.delta, eh.is_winner,
+         g.ended_at, g.mode, g.game_uuid
+  FROM elo_history eh
+  JOIN bingo_games g ON g.id = eh.game_id
+  WHERE eh.mc_uuid = ?
+  ORDER BY g.ended_at ASC, eh.id ASC
 `);
 
 function resolveMcUuid(identifier) {
@@ -135,6 +151,9 @@ router.get('/:identifier', (req, res, next) => {
         win_condition: g.win_condition,
         player_team: g.player_team,
         player_won: !!g.player_won,
+        elo_before: g.elo_before,
+        elo_after: g.elo_after,
+        elo_delta: g.delta,
         participants: byGameId.get(g.id) ?? [],
       }));
     }
@@ -145,6 +164,8 @@ router.get('/:identifier', (req, res, next) => {
       site_username: summary.site_username,
       site_created_at: summary.site_created_at,
       linked_at: summary.linked_at,
+      elo: summary.elo ?? STARTING_ELO,
+      peak_elo: summary.peak_elo ?? STARTING_ELO,
       totals: {
         games: summary.games,
         wins: summary.wins,
@@ -154,6 +175,29 @@ router.get('/:identifier', (req, res, next) => {
       avg_duration_seconds_last_10: avg.sample > 0 ? Math.round(avg.avg_seconds) : null,
       wins_by_mode: winsByMode,
       recent_games: games,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/:identifier/elo-history', (req, res, next) => {
+  try {
+    const mcUuid = resolveMcUuid(req.params.identifier);
+    if (!mcUuid) throw new HttpError(404, 'player_not_found');
+    const rows = eloHistoryStmt.all(mcUuid);
+    res.json({
+      mc_uuid: mcUuid,
+      starting_elo: STARTING_ELO,
+      points: rows.map((r) => ({
+        ended_at: r.ended_at,
+        mode: r.mode,
+        game_uuid: r.game_uuid,
+        elo_before: r.elo_before,
+        elo_after: r.elo_after,
+        delta: r.delta,
+        is_winner: !!r.is_winner,
+      })),
     });
   } catch (e) {
     next(e);

@@ -59,13 +59,31 @@
       const overview = window.ui.el('div', { class: 'card' }, [
         window.ui.el('h2', { text: 'Overview' }),
         window.ui.el('div', { class: 'stats-grid' }, [
-          stat('Wins', String(t.wins ?? 0)),
-          stat('Games', String(t.games ?? 0)),
-          stat('Win rate', `${t.win_rate ?? 0}%`),
-          stat('Avg time (last 10)', window.ui.formatDuration(data.avg_duration_seconds_last_10)),
+          stat('Elo', String(data.elo ?? 300)),
+          stat('Peak Elo', String(data.peak_elo ?? 300)),
+          stat('Victoires', String(t.wins ?? 0)),
+          stat('Parties', String(t.games ?? 0)),
+          stat('Winrate', `${t.win_rate ?? 0}%`),
+          stat('Temps moy. (10 dern.)', window.ui.formatDuration(data.avg_duration_seconds_last_10)),
         ]),
       ]);
       root.appendChild(overview);
+
+      // Elo curve (loaded async — non-blocking, profile already shown)
+      const eloCard = window.ui.el('div', { class: 'card' }, [
+        window.ui.el('h2', { text: 'Évolution Elo' }),
+        window.ui.el('div', { id: 'elo-chart-wrap' }, [
+          window.ui.el('div', { class: 'skeleton', style: 'height: 200px;' }),
+        ]),
+      ]);
+      root.appendChild(eloCard);
+      window.api.eloHistory(id)
+        .then((h) => renderEloChart(document.getElementById('elo-chart-wrap'), h))
+        .catch(() => {
+          const w = document.getElementById('elo-chart-wrap');
+          window.ui.clear(w);
+          w.appendChild(window.ui.el('p', { class: 'muted', text: 'Pas d\'historique Elo disponible.' }));
+        });
 
       // Per-mode breakdown
       if (data.wins_by_mode.length) {
@@ -110,6 +128,101 @@
       root.appendChild(recentCard);
     })();
 
+    function renderEloChart(wrap, history) {
+      window.ui.clear(wrap);
+      const points = history.points || [];
+      if (points.length === 0) {
+        wrap.appendChild(window.ui.el('p', { class: 'muted', text: 'Aucune partie classée.' }));
+        return;
+      }
+
+      // Series: starting Elo, then elo_after for each game in order.
+      const series = [history.starting_elo, ...points.map((p) => p.elo_after)];
+      const W = 720;
+      const H = 220;
+      const padL = 40, padR = 12, padT = 12, padB = 24;
+      const innerW = W - padL - padR;
+      const innerH = H - padT - padB;
+
+      const minRaw = Math.min(...series);
+      const maxRaw = Math.max(...series);
+      // Pad the y range so a flat line still shows nicely.
+      const span = Math.max(20, maxRaw - minRaw);
+      const yMin = Math.floor((minRaw - span * 0.1) / 10) * 10;
+      const yMax = Math.ceil((maxRaw + span * 0.1) / 10) * 10;
+      const yRange = yMax - yMin || 1;
+
+      const x = (i) => padL + (series.length === 1 ? innerW / 2 : (i / (series.length - 1)) * innerW);
+      const y = (v) => padT + innerH - ((v - yMin) / yRange) * innerH;
+
+      const svgNS = 'http://www.w3.org/2000/svg';
+      const svg = document.createElementNS(svgNS, 'svg');
+      svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+      svg.setAttribute('width', '100%');
+      svg.setAttribute('class', 'elo-chart');
+      svg.style.maxWidth = '100%';
+      svg.style.height = 'auto';
+
+      // Y gridlines + labels (4 ticks)
+      for (let i = 0; i <= 4; i++) {
+        const v = yMin + (yRange * i) / 4;
+        const yy = y(v);
+        const line = document.createElementNS(svgNS, 'line');
+        line.setAttribute('x1', padL);
+        line.setAttribute('x2', W - padR);
+        line.setAttribute('y1', yy);
+        line.setAttribute('y2', yy);
+        line.setAttribute('stroke', 'rgba(255,255,255,0.08)');
+        svg.appendChild(line);
+        const label = document.createElementNS(svgNS, 'text');
+        label.setAttribute('x', padL - 6);
+        label.setAttribute('y', yy + 3);
+        label.setAttribute('text-anchor', 'end');
+        label.setAttribute('font-size', '10');
+        label.setAttribute('fill', 'rgba(255,255,255,0.5)');
+        label.textContent = String(Math.round(v));
+        svg.appendChild(label);
+      }
+
+      // Polyline
+      const path = series
+        .map((v, i) => `${i === 0 ? 'M' : 'L'} ${x(i).toFixed(1)} ${y(v).toFixed(1)}`)
+        .join(' ');
+      const poly = document.createElementNS(svgNS, 'path');
+      poly.setAttribute('d', path);
+      poly.setAttribute('fill', 'none');
+      poly.setAttribute('stroke', '#5b8def');
+      poly.setAttribute('stroke-width', '2');
+      poly.setAttribute('stroke-linejoin', 'round');
+      svg.appendChild(poly);
+
+      // Dots — green for wins, red for losses, neutral for the starting point.
+      for (let i = 0; i < series.length; i++) {
+        const dot = document.createElementNS(svgNS, 'circle');
+        dot.setAttribute('cx', x(i));
+        dot.setAttribute('cy', y(series[i]));
+        dot.setAttribute('r', '3');
+        if (i === 0) {
+          dot.setAttribute('fill', '#888');
+        } else {
+          dot.setAttribute('fill', points[i - 1].is_winner ? '#52c41a' : '#e57373');
+        }
+        const title = document.createElementNS(svgNS, 'title');
+        if (i === 0) {
+          title.textContent = `Départ : ${series[i]} Elo`;
+        } else {
+          const p = points[i - 1];
+          const d = (p.delta > 0 ? '+' : '') + p.delta;
+          title.textContent = `${new Date(p.ended_at).toLocaleString()} — ${p.is_winner ? 'Win' : 'Loss'} (${d}) → ${p.elo_after}`;
+        }
+        dot.appendChild(title);
+        svg.appendChild(dot);
+      }
+
+      wrap.appendChild(svg);
+      wrap.appendChild(window.ui.el('p', { class: 'muted', style: 'font-size:12px; margin-top:6px;', text: `${points.length} partie(s) classée(s) — passe la souris sur un point pour voir le détail.` }));
+    }
+
     function stat(label, value) {
       return window.ui.el('div', { class: 'stat' }, [
         window.ui.el('div', { class: 'stat-label', text: label }),
@@ -119,13 +232,24 @@
 
     function renderGame(g, currentUuid) {
       const won = g.player_won;
-      const header = window.ui.el('div', { class: 'row', style: 'gap: 10px; flex-wrap: wrap;' }, [
+      const headerChildren = [
         window.ui.el('span', { class: `badge ${won ? 'win' : 'loss'}`, text: won ? 'Win' : 'Loss' }),
         window.ui.el('span', { text: window.ui.modeLabel(g.mode) }),
         window.ui.teamBadge(g.player_team),
+      ];
+      if (g.elo_delta != null) {
+        const deltaTxt = (g.elo_delta > 0 ? '+' : '') + g.elo_delta;
+        const cls = g.elo_delta > 0 ? 'elo-delta up' : g.elo_delta < 0 ? 'elo-delta down' : 'elo-delta';
+        headerChildren.push(window.ui.el('span', { class: cls, text: `${deltaTxt} Elo` }));
+        if (g.elo_after != null) {
+          headerChildren.push(window.ui.el('span', { class: 'muted', text: `→ ${g.elo_after}` }));
+        }
+      }
+      headerChildren.push(
         window.ui.el('span', { class: 'muted', text: window.ui.formatDuration(g.duration_seconds) }),
         window.ui.el('span', { class: 'muted', text: window.ui.formatRelative(g.ended_at) }),
-      ]);
+      );
+      const header = window.ui.el('div', { class: 'row', style: 'gap: 10px; flex-wrap: wrap;' }, headerChildren);
 
       const others = g.participants.filter((p) => p.mc_uuid !== currentUuid);
       const playersList = window.ui.el('div', { class: 'row', style: 'gap: 10px; margin-top: 8px;' });

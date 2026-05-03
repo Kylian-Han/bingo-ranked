@@ -11,11 +11,13 @@ const listUsers = db.prepare(`
   SELECT
     u.id, u.username, u.email, u.is_admin, u.created_at,
     mc.mc_uuid, mc.mc_username, mc.linked_at,
+    pr.elo, pr.peak_elo,
     COUNT(DISTINCT gp.game_id) AS games,
     SUM(CASE WHEN gp.is_winner THEN 1 ELSE 0 END) AS wins
   FROM users u
   LEFT JOIN mc_accounts mc ON mc.user_id = u.id
   LEFT JOIN game_participants gp ON gp.mc_uuid = mc.mc_uuid
+  LEFT JOIN player_ratings pr ON pr.mc_uuid = mc.mc_uuid
   GROUP BY u.id
   ORDER BY u.created_at DESC
 `);
@@ -55,6 +57,61 @@ const deleteGameParticipants = db.prepare('DELETE FROM game_participants WHERE g
 
 const unlinkMc = db.prepare('DELETE FROM mc_accounts WHERE user_id = ?');
 const resetParticipants = db.prepare('DELETE FROM game_participants WHERE mc_uuid = ?');
+const resetEloHistory = db.prepare('DELETE FROM elo_history WHERE mc_uuid = ?');
+const resetRating = db.prepare('DELETE FROM player_ratings WHERE mc_uuid = ?');
+
+// Players whose Elo curve depends on a given game (used to recompute their
+// current rating after the game is deleted).
+const participantsOfGame = db.prepare(
+  'SELECT mc_uuid FROM game_participants WHERE game_id = ?',
+);
+const lastEloAfterStmt = db.prepare(`
+  SELECT eh.elo_after, eh.is_winner
+  FROM elo_history eh
+  JOIN bingo_games g ON g.id = eh.game_id
+  WHERE eh.mc_uuid = ?
+  ORDER BY g.ended_at DESC, eh.id DESC
+  LIMIT 1
+`);
+const aggregatesForUuid = db.prepare(`
+  SELECT
+    COUNT(*) AS games,
+    SUM(p.is_winner) AS wins,
+    MAX(eh.elo_after) AS peak_elo
+  FROM game_participants p
+  LEFT JOIN elo_history eh ON eh.game_id = p.game_id AND eh.mc_uuid = p.mc_uuid
+  WHERE p.mc_uuid = ?
+`);
+const upsertRatingFromAggregate = db.prepare(`
+  INSERT INTO player_ratings (mc_uuid, elo, peak_elo, games, wins, updated_at)
+  VALUES (@mc_uuid, @elo, @peak_elo, @games, @wins, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  ON CONFLICT(mc_uuid) DO UPDATE SET
+    elo = excluded.elo,
+    peak_elo = excluded.peak_elo,
+    games = excluded.games,
+    wins = excluded.wins,
+    updated_at = excluded.updated_at
+`);
+
+function rebuildRatingFromHistory(mcUuid) {
+  // After a game deletion, the ON DELETE CASCADE wipes the corresponding
+  // elo_history row. We recover the player's current rating from their last
+  // remaining history entry; if none remain, drop the rating row entirely so
+  // they're back to STARTING_ELO on next match.
+  const last = lastEloAfterStmt.get(mcUuid);
+  const agg = aggregatesForUuid.get(mcUuid);
+  if (!last || !agg || agg.games === 0) {
+    resetRating.run(mcUuid);
+    return;
+  }
+  upsertRatingFromAggregate.run({
+    mc_uuid: mcUuid,
+    elo: last.elo_after,
+    peak_elo: agg.peak_elo ?? last.elo_after,
+    games: agg.games,
+    wins: agg.wins ?? 0,
+  });
+}
 
 // ── GET /api/admin/users ──────────────────────────────────────────────────────
 
@@ -92,8 +149,14 @@ router.delete('/users/:id/stats', (req, res) => {
   if (!user) return res.status(404).json({ error: 'not_found' });
   if (!user.mc_uuid) return res.status(400).json({ error: 'not_linked' });
 
-  const { changes } = resetParticipants.run(user.mc_uuid);
-  res.json({ ok: true, deleted: changes });
+  const result = db.transaction(() => {
+    const { changes } = resetParticipants.run(user.mc_uuid);
+    resetEloHistory.run(user.mc_uuid);
+    resetRating.run(user.mc_uuid);
+    return changes;
+  })();
+
+  res.json({ ok: true, deleted: result });
 });
 
 // ── DELETE /api/admin/users/:id/link ─────────────────────────────────────────
@@ -134,8 +197,12 @@ router.delete('/games/:id', (req, res) => {
   if (!id) return res.status(400).json({ error: 'invalid_id' });
 
   db.transaction(() => {
+    const affected = participantsOfGame.all(id).map((r) => r.mc_uuid);
     deleteGameParticipants.run(id);
     deleteGame.run(id);
+    // bingo_games delete cascades to elo_history; refresh each affected
+    // player's current rating from their remaining history.
+    for (const mcUuid of affected) rebuildRatingFromHistory(mcUuid);
   })();
 
   res.json({ ok: true });

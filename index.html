@@ -12,13 +12,13 @@
   <main>
     <div class="container">
       <h1>Leaderboard</h1>
-      <p class="subtitle">Top bingo players, ranked by win count.</p>
+      <p class="subtitle" id="board-subtitle">Top bingo players, classés par Elo.</p>
 
       <div class="controls">
         <label>
           Mode
           <select id="mode-filter">
-            <option value="">All modes</option>
+            <option value="">Tous modes (Elo)</option>
           </select>
         </label>
         <div class="spacer"></div>
@@ -45,7 +45,6 @@
         const { modes } = await window.api.modes();
         for (const m of modes) {
           const opt = window.ui.el('option', { value: m.mode, text: `${window.ui.modeLabel(m.mode)} (${m.games})` });
-          if (m.mode === 'normal') opt.selected = true;
           modeSelect.appendChild(opt);
         }
       } catch {}
@@ -59,41 +58,54 @@
           const mode = modeSelect.value || undefined;
           const data = await window.api.leaderboard({ mode, limit: 100 });
           totalsEl.textContent =
-            `${data.totals.total_games ?? 0} games · ${data.totals.total_players ?? 0} players`;
-          renderTable(data.players);
+            `${data.totals.total_games ?? 0} parties · ${data.totals.total_players ?? 0} joueurs`;
+          const subtitle = document.getElementById('board-subtitle');
+          subtitle.textContent = mode
+            ? `Top joueurs en mode ${window.ui.modeLabel(mode)}, classés par victoires.`
+            : 'Top joueurs, classés par Elo.';
+          renderTable(data.players, !mode);
         } catch (e) {
           window.ui.clear(wrap);
-          wrap.appendChild(window.ui.el('div', { class: 'alert error', text: 'Failed to load leaderboard.' }));
+          wrap.appendChild(window.ui.el('div', { class: 'alert error', text: 'Échec du chargement du classement.' }));
         }
       }
 
-      function renderTable(players) {
+      function renderTable(players, eloMode) {
         window.ui.clear(wrap);
         if (!players.length) {
           wrap.appendChild(
-            window.ui.el('div', { class: 'card empty-state', text: 'No games recorded yet.' }),
+            window.ui.el('div', { class: 'card empty-state', text: 'Aucune partie enregistrée.' }),
           );
           return;
         }
-        const head = window.ui.el('thead', {}, [
-          window.ui.el('tr', {}, [
-            window.ui.el('th', { text: '#' }),
-            window.ui.el('th', { text: 'Player' }),
-            window.ui.el('th', { text: 'Wins' }),
-            window.ui.el('th', { text: 'Games' }),
-            window.ui.el('th', { text: 'Win rate' }),
-          ]),
-        ]);
+        const headCells = [
+          window.ui.el('th', { text: '#' }),
+          window.ui.el('th', { text: 'Joueur' }),
+        ];
+        if (eloMode) headCells.push(window.ui.el('th', { text: 'Elo' }));
+        headCells.push(
+          window.ui.el('th', { text: 'Victoires' }),
+          window.ui.el('th', { text: 'Parties' }),
+          window.ui.el('th', { text: 'Winrate' }),
+        );
+        const head = window.ui.el('thead', {}, [window.ui.el('tr', {}, headCells)]);
+
         const body = window.ui.el('tbody');
         players.forEach((p, i) => {
           const rank = i + 1;
-          body.appendChild(window.ui.el('tr', {}, [
+          const cells = [
             window.ui.el('td', { class: `rank rank-${rank}`, text: '#' + rank }),
             window.ui.el('td', {}, [window.ui.playerLink(p)]),
+          ];
+          if (eloMode) {
+            cells.push(window.ui.el('td', { class: 'elo-cell', text: String(p.elo ?? '—') }));
+          }
+          cells.push(
             window.ui.el('td', { text: String(p.wins ?? 0) }),
             window.ui.el('td', { text: String(p.games ?? 0) }),
             window.ui.el('td', { text: (p.win_rate ?? 0) + '%' }),
-          ]));
+          );
+          body.appendChild(window.ui.el('tr', {}, cells));
         });
         const table = window.ui.el('table', {}, [head, body]);
         wrap.appendChild(window.ui.el('div', { class: 'table-wrap' }, [table]));

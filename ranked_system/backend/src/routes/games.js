@@ -3,6 +3,7 @@ import { db } from '../db/database.js';
 import { gameReportSchema } from '../utils/validation.js';
 import { verifyModHmac } from '../middleware/hmac.js';
 import { HttpError } from '../middleware/error.js';
+import { computeEloDeltas, STARTING_ELO } from '../utils/elo.js';
 
 const router = Router();
 
@@ -16,6 +17,22 @@ const insertParticipant = db.prepare(`
   INSERT OR IGNORE INTO game_participants
     (game_id, mc_uuid, mc_username, team, is_winner)
   VALUES (?, ?, ?, ?, ?)
+`);
+
+const getRating = db.prepare(`SELECT elo, peak_elo, games, wins FROM player_ratings WHERE mc_uuid = ?`);
+const upsertRating = db.prepare(`
+  INSERT INTO player_ratings (mc_uuid, elo, peak_elo, games, wins, updated_at)
+  VALUES (@mc_uuid, @elo, @peak_elo, @games, @wins, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  ON CONFLICT(mc_uuid) DO UPDATE SET
+    elo = excluded.elo,
+    peak_elo = MAX(player_ratings.peak_elo, excluded.elo),
+    games = excluded.games,
+    wins = excluded.wins,
+    updated_at = excluded.updated_at
+`);
+const insertEloHistory = db.prepare(`
+  INSERT INTO elo_history (game_id, mc_uuid, elo_before, elo_after, delta, is_winner)
+  VALUES (?, ?, ?, ?, ?, ?)
 `);
 
 router.post('/', verifyModHmac, (req, res, next) => {
@@ -54,6 +71,50 @@ router.post('/', verifyModHmac, (req, res, next) => {
           p.is_winner ? 1 : 0,
         );
       }
+
+      // Snapshot each participant's current Elo, run the calculator, persist
+      // updated ratings + per-game history. Same transaction as the game row
+      // so a crash mid-write can't leave Elo and games out of sync.
+      const enriched = data.participants.map((p) => {
+        const r = getRating.get(p.mc_uuid);
+        return {
+          mc_uuid: p.mc_uuid,
+          team: p.team,
+          is_winner: !!p.is_winner,
+          elo: r?.elo ?? STARTING_ELO,
+          games: r?.games ?? 0,
+          wins: r?.wins ?? 0,
+        };
+      });
+
+      const deltas = computeEloDeltas({
+        participants: enriched,
+        durationSeconds: data.duration_seconds,
+      });
+      const deltaByUuid = new Map(deltas.map((d) => [d.mc_uuid, d]));
+
+      for (const p of enriched) {
+        const d = deltaByUuid.get(p.mc_uuid);
+        const newElo = d.elo_after;
+        const newGames = p.games + 1;
+        const newWins = p.wins + (p.is_winner ? 1 : 0);
+        upsertRating.run({
+          mc_uuid: p.mc_uuid,
+          elo: newElo,
+          peak_elo: Math.max(p.elo, newElo),
+          games: newGames,
+          wins: newWins,
+        });
+        insertEloHistory.run(
+          gameId,
+          p.mc_uuid,
+          d.elo_before,
+          d.elo_after,
+          d.delta,
+          d.is_winner ? 1 : 0,
+        );
+      }
+
       return gameId;
     });
 
