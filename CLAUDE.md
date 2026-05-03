@@ -19,10 +19,12 @@ that together track per-player Elo and wins across a Minecraft server.
 ```
 ranked_system/
 ├── backend/      Node.js + Express + better-sqlite3 + Argon2id (/opt/backend sur Hetzner)
-├── frontend/     Vanilla HTML/CSS/JS (GitHub Pages — Kylian-Han.github.io)
 ├── mod/          Fabric mod, Java 21, Loom build (/opt/minecraft/mods/ sur Hetzner)
 ├── datapack/     ranked_hooks companion datapack (/opt/minecraft/world/datapacks/)
 └── docs/         Deployment guides (one per piece + integration)
+
+Le frontend est à la **racine du repo** (index.html, player.html, js/, css/) —
+GitHub Pages sert depuis là. Pas de sous-dossier frontend.
 
 bingo_1_21_10/    The existing bingo system (Flytre Bingo, dézippé localement).
                   Don't modify directly — patch via ranked_hooks and the integration doc.
