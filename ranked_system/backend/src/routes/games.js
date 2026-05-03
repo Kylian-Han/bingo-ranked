@@ -115,11 +115,11 @@ router.post('/', verifyModHmac, (req, res, next) => {
         );
       }
 
-      return gameId;
+      return { gameId, deltas };
     });
 
-    const gameId = tx();
-    res.status(201).json({ ok: true, game_id: gameId });
+    const { gameId, deltas } = tx();
+    res.status(201).json({ ok: true, game_id: gameId, elo_deltas: deltas });
   } catch (e) {
     next(e);
   }

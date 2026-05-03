@@ -79,14 +79,15 @@ The default hooks emit these mode labels:
 
 | Hook function | Mode label |
 |---------------|------------|
-| `ranked:on_start_normal` | `normal` |
-| `ranked:on_start_nether` | `nether` |
-| `ranked:on_start_speed`  | `speed`  |
-| `ranked:on_start_lockout`| `lockout`|
+| `ranked:on_start_normal`  | `normal`  |
+| `ranked:on_start_nether`  | `nether`  |
+| `ranked:on_start_speed`   | `speed`   |
+| `ranked:on_start_lockout` | `lockout` |
+| `ranked:on_start_manhunt` | `manhunt` |
 
-These show up in the leaderboard's mode filter. If you have a custom mode, copy
-one of those `.mcfunction` files in `ranked_hooks/data/ranked/function/` and
-edit the literal name — they're one-liners.
+**Important :** si le bingo appelle `ranked:on_start_normal` pour un mode manhunt ou lockout, la partie sera enregistrée avec le mauvais mode dans la DB. Assure-toi que chaque mode de jeu appelle le bon hook.
+
+Si tu as un mode custom, copie l'un des `.mcfunction` dans `ranked_hooks/data/ranked/function/` et change le nom dans la commande — c'est une seule ligne.
 
 ## 5. Verify end-to-end
 

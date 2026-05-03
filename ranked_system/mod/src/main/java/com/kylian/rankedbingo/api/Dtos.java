@@ -27,4 +27,18 @@ public final class Dtos {
             String team,
             boolean is_winner
     ) {}
+
+    public record EloDelta(
+            String mc_uuid,
+            int elo_before,
+            int elo_after,
+            int delta,
+            boolean is_winner
+    ) {}
+
+    public record GameReportResponse(
+            boolean ok,
+            long game_id,
+            java.util.List<EloDelta> elo_deltas
+    ) {}
 }

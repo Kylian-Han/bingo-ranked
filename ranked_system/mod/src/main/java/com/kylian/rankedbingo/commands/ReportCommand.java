@@ -1,13 +1,19 @@
 package com.kylian.rankedbingo.commands;
 
+import com.google.gson.Gson;
 import com.kylian.rankedbingo.RankedBingo;
 import com.kylian.rankedbingo.api.Dtos;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
+
+import java.util.List;
+import java.util.UUID;
 
 /**
  * /rankedreport — internal command called by the bingo datapack.
@@ -24,6 +30,7 @@ import net.minecraft.util.Formatting;
  * win_condition: row | column | diagonal | blackout | majority | manhunt | race | none
  */
 public class ReportCommand {
+    private static final Gson GSON = new Gson();
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher) {
         dispatcher.register(CommandManager.literal("rankedreport")
                 .requires(src -> src.hasPermissionLevel(2))
@@ -80,10 +87,19 @@ public class ReportCommand {
             return 1;
         }
 
+        MinecraftServer server = src.getServer();
         RankedBingo.BACKEND.postSigned("/games", report)
                 .thenAccept(res -> {
                     if (res.statusCode() == 201 || res.statusCode() == 200) {
                         RankedBingo.LOGGER.info("[ranked_bingo] Game {} reported ({} participants).", report.game_uuid(), report.participants().size());
+                        try {
+                            Dtos.GameReportResponse resp = GSON.fromJson(res.body(), Dtos.GameReportResponse.class);
+                            if (resp != null && resp.elo_deltas() != null) {
+                                broadcastEloDeltas(server, resp.elo_deltas());
+                            }
+                        } catch (Exception e) {
+                            RankedBingo.LOGGER.warn("[ranked_bingo] Failed to parse game response: {}", e.toString());
+                        }
                     } else {
                         RankedBingo.LOGGER.warn("[ranked_bingo] Game report rejected ({}): {}", res.statusCode(), res.body());
                     }
@@ -95,5 +111,20 @@ public class ReportCommand {
 
         src.sendFeedback(() -> Text.literal("[ranked] Reported game (" + report.participants().size() + " players, winner: " + report.winning_team() + ")").formatted(Formatting.GRAY), false);
         return 1;
+    }
+
+    private static void broadcastEloDeltas(MinecraftServer server, List<Dtos.EloDelta> deltas) {
+        for (Dtos.EloDelta d : deltas) {
+            try {
+                ServerPlayerEntity player = server.getPlayerManager().getPlayer(UUID.fromString(d.mc_uuid()));
+                if (player == null) continue;
+                String sign = d.delta() >= 0 ? "+" : "";
+                String arrow = d.delta() >= 0 ? "▲" : "▼";
+                Formatting color = d.delta() >= 0 ? Formatting.GREEN : Formatting.RED;
+                Text msg = Text.literal("[ranked] Elo : " + d.elo_before() + " → " + d.elo_after()
+                        + "  (" + arrow + sign + d.delta() + ")").formatted(color);
+                player.sendMessage(msg, false);
+            } catch (Exception ignored) {}
+        }
     }
 }
