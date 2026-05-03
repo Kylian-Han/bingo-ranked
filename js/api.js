@@ -101,7 +101,5 @@
     modes: () => request('/leaderboard/modes', { noAuth: true }),
     player: (identifier) =>
       request('/players/' + encodeURIComponent(identifier), { noAuth: true }),
-    eloHistory: (identifier) =>
-      request('/players/' + encodeURIComponent(identifier) + '/elo-history', { noAuth: true }),
   };
 })();

@@ -324,7 +324,6 @@
           window.ui.el('th', { text: 'ID' }),
           window.ui.el('th', { text: 'Compte site' }),
           window.ui.el('th', { text: 'Compte MC' }),
-          window.ui.el('th', { text: 'Elo' }),
           window.ui.el('th', { text: 'Wins / Games' }),
           window.ui.el('th', { text: 'Inscrit' }),
           window.ui.el('th', { text: 'Actions' }),
@@ -370,20 +369,10 @@
           actions.appendChild(delBtn);
         }
 
-        const eloCell = u.elo != null
-          ? window.ui.el('td', {}, [
-              window.ui.el('div', { class: 'elo-cell', text: String(u.elo) }),
-              u.peak_elo != null && u.peak_elo > u.elo
-                ? window.ui.el('div', { class: 'muted', style: 'font-size:11px;', text: 'peak ' + u.peak_elo })
-                : null,
-            ])
-          : window.ui.el('td', { class: 'muted', text: '—' });
-
         body.appendChild(window.ui.el('tr', { class: 'user-row' }, [
           window.ui.el('td', { class: 'muted', style: 'font-family:var(--mono);font-size:13px;', text: String(u.id) }),
           window.ui.el('td', {}, nameParts),
           mcCell,
-          eloCell,
           window.ui.el('td', { text: (u.wins ?? 0) + ' / ' + (u.games ?? 0) }),
           window.ui.el('td', { text: window.ui.formatRelative(u.created_at) }),
           window.ui.el('td', {}, [actions]),

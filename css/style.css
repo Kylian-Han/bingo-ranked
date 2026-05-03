@@ -327,27 +327,3 @@ tr:hover td { background: rgba(255, 255, 255, 0.02); }
   th, td { padding: 8px 10px; }
   .code-display { font-size: 22px; }
 }
-
-.elo-cell {
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: var(--accent);
-}
-
-.elo-delta {
-  font-weight: 700;
-  font-size: 13px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--bg-elev-2);
-  color: var(--text-dim);
-}
-.elo-delta.up   { color: var(--success); background: rgba(63, 185, 80, 0.12); }
-.elo-delta.down { color: var(--danger);  background: rgba(248, 81, 73, 0.12); }
-
-.elo-chart {
-  display: block;
-  background: var(--bg-elev-2);
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-}

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Bingo Ranked — Leaderboard</title>
+  <title>Bingo Ranked — Classement</title>
   <link rel="stylesheet" href="css/style.css" />
   <script src="js/config.js"></script>
 </head>
@@ -12,13 +12,13 @@
   <main>
     <div class="container">
       <h1>Leaderboard</h1>
-      <p class="subtitle" id="board-subtitle">Top bingo players, classés par Elo.</p>
+      <p class="subtitle" id="subtitle">Joueurs classés par victoires.</p>
 
       <div class="controls">
         <label>
           Mode
           <select id="mode-filter">
-            <option value="">Tous modes (Elo)</option>
+            <option value="">Tous modes</option>
           </select>
         </label>
         <div class="spacer"></div>
@@ -39,13 +39,16 @@
 
       const wrap = document.getElementById('leaderboard-wrap');
       const totalsEl = document.getElementById('totals');
+      const subtitleEl = document.getElementById('subtitle');
       const modeSelect = document.getElementById('mode-filter');
 
       try {
         const { modes } = await window.api.modes();
         for (const m of modes) {
-          const opt = window.ui.el('option', { value: m.mode, text: `${window.ui.modeLabel(m.mode)} (${m.games})` });
-          modeSelect.appendChild(opt);
+          modeSelect.appendChild(window.ui.el('option', {
+            value: m.mode,
+            text: `${window.ui.modeLabel(m.mode)} (${m.games})`,
+          }));
         }
       } catch {}
 
@@ -54,23 +57,22 @@
         wrap.appendChild(window.ui.el('div', { class: 'card' }, [
           window.ui.el('div', { class: 'skeleton', style: 'height: 32px;' }),
         ]));
+        const mode = modeSelect.value || undefined;
+        subtitleEl.textContent = mode
+          ? `Classement ${window.ui.modeLabel(mode)} par Elo.`
+          : 'Classement toutes modes par victoires.';
         try {
-          const mode = modeSelect.value || undefined;
           const data = await window.api.leaderboard({ mode, limit: 100 });
           totalsEl.textContent =
             `${data.totals.total_games ?? 0} parties · ${data.totals.total_players ?? 0} joueurs`;
-          const subtitle = document.getElementById('board-subtitle');
-          subtitle.textContent = mode
-            ? `Top joueurs en mode ${window.ui.modeLabel(mode)}, classés par victoires.`
-            : 'Top joueurs, classés par Elo.';
-          renderTable(data.players, !mode);
+          renderTable(data.players, mode);
         } catch (e) {
           window.ui.clear(wrap);
-          wrap.appendChild(window.ui.el('div', { class: 'alert error', text: 'Échec du chargement du classement.' }));
+          wrap.appendChild(window.ui.el('div', { class: 'alert error', text: 'Impossible de charger le classement.' }));
         }
       }
 
-      function renderTable(players, eloMode) {
+      function renderTable(players, mode) {
         window.ui.clear(wrap);
         if (!players.length) {
           wrap.appendChild(
@@ -78,33 +80,29 @@
           );
           return;
         }
-        const headCells = [
-          window.ui.el('th', { text: '#' }),
-          window.ui.el('th', { text: 'Joueur' }),
-        ];
-        if (eloMode) headCells.push(window.ui.el('th', { text: 'Elo' }));
-        headCells.push(
-          window.ui.el('th', { text: 'Victoires' }),
-          window.ui.el('th', { text: 'Parties' }),
-          window.ui.el('th', { text: 'Winrate' }),
-        );
-        const head = window.ui.el('thead', {}, [window.ui.el('tr', {}, headCells)]);
-
+        const cols = mode
+          ? ['#', 'Joueur', 'Elo', 'Parties', 'Victoires']
+          : ['#', 'Joueur', 'Victoires', 'Parties'];
+        const head = window.ui.el('thead', {}, [
+          window.ui.el('tr', {}, cols.map((c) => window.ui.el('th', { text: c }))),
+        ]);
         const body = window.ui.el('tbody');
         players.forEach((p, i) => {
           const rank = i + 1;
-          const cells = [
-            window.ui.el('td', { class: `rank rank-${rank}`, text: '#' + rank }),
-            window.ui.el('td', {}, [window.ui.playerLink(p)]),
-          ];
-          if (eloMode) {
-            cells.push(window.ui.el('td', { class: 'elo-cell', text: String(p.elo ?? '—') }));
-          }
-          cells.push(
-            window.ui.el('td', { text: String(p.wins ?? 0) }),
-            window.ui.el('td', { text: String(p.games ?? 0) }),
-            window.ui.el('td', { text: (p.win_rate ?? 0) + '%' }),
-          );
+          const cells = mode
+            ? [
+                window.ui.el('td', { class: `rank rank-${rank}`, text: '#' + rank }),
+                window.ui.el('td', {}, [window.ui.playerLink(p)]),
+                window.ui.el('td', { text: String(p.elo ?? 300) }),
+                window.ui.el('td', { text: String(p.games ?? 0) }),
+                window.ui.el('td', { text: String(p.wins ?? 0) }),
+              ]
+            : [
+                window.ui.el('td', { class: `rank rank-${rank}`, text: '#' + rank }),
+                window.ui.el('td', {}, [window.ui.playerLink(p)]),
+                window.ui.el('td', { text: String(p.wins ?? 0) }),
+                window.ui.el('td', { text: String(p.games ?? 0) }),
+              ];
           body.appendChild(window.ui.el('tr', {}, cells));
         });
         const table = window.ui.el('table', {}, [head, body]);
