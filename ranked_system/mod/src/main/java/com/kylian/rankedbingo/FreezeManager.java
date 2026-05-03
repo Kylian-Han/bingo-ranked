@@ -13,57 +13,51 @@ import net.minecraft.world.World;
 import java.util.UUID;
 
 /**
- * Every 20 ticks (1 s), teleports and re-freezes every online player whose UUID
- * is not in the link cache — unless a bingo game is currently running, in which
- * case we leave them alone so they can play.
- *
- * Freeze is implemented with Slowness 255 + Mining Fatigue 255 (both short-duration,
- * renewed every cycle) so the player cannot move or break blocks.
- *
- * Every 600 ticks (30 s) we re-poll the backend for each frozen player so that a
- * link completed on the website while the player is already online takes effect
- * without requiring a reconnect.
+ * Every tick, teleports any unlinked player who has drifted >1 block from spawn back
+ * to spawn — so the TP triggers on movement, not on a polling interval.
+ * Effects (Slowness + Mining Fatigue 255) are renewed every 20 ticks (1 s).
+ * A reminder message is sent every 200 ticks (10 s).
+ * Backend re-poll every 600 ticks (30 s) so a web-side link is picked up without reconnect.
+ * All of this is skipped while a bingo game is running.
  */
 public class FreezeManager {
-    private static final int CHECK_INTERVAL_TICKS = 20;
-    private static final int MESSAGE_INTERVAL_TICKS = 200;  // 10 s
-    private static final int RECHECK_INTERVAL_TICKS = 600;  // 30 s
+    private static final int EFFECT_INTERVAL_TICKS = 20;
+    private static final int MESSAGE_INTERVAL_TICKS = 200;
+    private static final int RECHECK_INTERVAL_TICKS = 600;
 
     private int tickCounter = 0;
 
     public void onServerTick(MinecraftServer server) {
         if (!RankedBingo.CONFIG.freezeUnlinkedPlayers) return;
-        tickCounter++;
-
-        if (tickCounter % CHECK_INTERVAL_TICKS != 0) return;
-
-        // Don't interrupt an ongoing bingo game.
         if (RankedBingo.GAME_TRACKER.isRunning()) return;
+
+        tickCounter++;
 
         ServerWorld overworld = server.getWorld(World.OVERWORLD);
         if (overworld == null) return;
 
-        boolean sendMessage = (tickCounter % MESSAGE_INTERVAL_TICKS == 0);
-        boolean recheck = (tickCounter % RECHECK_INTERVAL_TICKS == 0);
+        boolean renewEffects = (tickCounter % EFFECT_INTERVAL_TICKS == 0);
+        boolean sendMessage  = (tickCounter % MESSAGE_INTERVAL_TICKS == 0);
+        boolean recheck      = (tickCounter % RECHECK_INTERVAL_TICKS == 0);
 
         for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
             UUID uuid = player.getUuid();
-
             if (RankedBingo.LINK_CACHE.isLinked(uuid)) continue;
 
-            // Async re-poll so a web-side link is picked up without reconnect.
             if (recheck && RankedBingo.CONFIG.isUsable()) {
                 recheckLinkStatus(player, server);
             }
 
-            teleportToSpawn(player, overworld);
-            applyFreezeEffects(player);
+            // TP immediately whenever the player has moved >1 block from spawn.
+            teleportIfDrifted(player, overworld);
+
+            if (renewEffects) applyFreezeEffects(player);
 
             if (sendMessage) {
                 player.sendMessage(
-                    Text.literal("Lie ton compte Minecraft sur le site pour jouer ! (/link)")
+                    Text.literal("Lie ton compte sur https://kylian-han.github.io/bingo-ranked/ pour jouer !")
                         .formatted(Formatting.RED),
-                    true // action bar
+                    false
                 );
             }
         }
@@ -82,28 +76,27 @@ public class FreezeManager {
         });
     }
 
-    private void teleportToSpawn(ServerPlayerEntity player, ServerWorld overworld) {
+    private void teleportIfDrifted(ServerPlayerEntity player, ServerWorld overworld) {
         Config cfg = RankedBingo.CONFIG;
         if (player.getWorld() != overworld) {
             player.teleport(overworld, cfg.spawnX, cfg.spawnY, cfg.spawnZ, cfg.spawnYaw, cfg.spawnPitch);
-        } else {
-            Vec3d pos = player.getPos();
-            double dx = pos.x - cfg.spawnX;
-            double dy = pos.y - cfg.spawnY;
-            double dz = pos.z - cfg.spawnZ;
-            // Only tp if they've drifted more than 1 block to avoid constant micro-tp.
-            if (dx * dx + dy * dy + dz * dz > 1.0) {
-                player.teleport(overworld, cfg.spawnX, cfg.spawnY, cfg.spawnZ, cfg.spawnYaw, cfg.spawnPitch);
-            }
+            return;
+        }
+        Vec3d pos = player.getPos();
+        double dx = pos.x - cfg.spawnX;
+        double dy = pos.y - cfg.spawnY;
+        double dz = pos.z - cfg.spawnZ;
+        if (dx * dx + dy * dy + dz * dz > 1.0) {
+            player.teleport(overworld, cfg.spawnX, cfg.spawnY, cfg.spawnZ, cfg.spawnYaw, cfg.spawnPitch);
         }
     }
 
     private void applyFreezeEffects(ServerPlayerEntity player) {
-        // Renew every tick cycle so the effects never expire.
+        // Duration slightly longer than the renewal interval so they never flicker off.
         player.addStatusEffect(new StatusEffectInstance(
-            StatusEffects.SLOWNESS, CHECK_INTERVAL_TICKS + 5, 255, false, false, false));
+            StatusEffects.SLOWNESS, EFFECT_INTERVAL_TICKS + 5, 255, false, false, false));
         player.addStatusEffect(new StatusEffectInstance(
-            StatusEffects.MINING_FATIGUE, CHECK_INTERVAL_TICKS + 5, 255, false, false, false));
+            StatusEffects.MINING_FATIGUE, EFFECT_INTERVAL_TICKS + 5, 255, false, false, false));
     }
 
     /** Call when a player is confirmed linked so effects are cleared immediately. */

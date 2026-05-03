@@ -29,8 +29,8 @@ public class Config {
     public double spawnX = 182.50;
     public double spawnY = 135.00;
     public double spawnZ = 81.00;
-    public float spawnYaw = -91.46f;
-    public float spawnPitch = 90.00f;
+    public float spawnYaw = -90.00f;
+    public float spawnPitch = 0.00f;
 
     public static Config load() {
         Path path = FabricLoader.getInstance().getConfigDir().resolve("ranked_bingo.json");
