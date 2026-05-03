@@ -21,6 +21,7 @@ public class Config {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     public String backendUrl = "http://localhost:3000/api";
+    public String siteUrl = "https://kylian-han.github.io";
     public String hmacKey = "REPLACE_WITH_SHARED_SECRET";
     public boolean reportingEnabled = true;
 

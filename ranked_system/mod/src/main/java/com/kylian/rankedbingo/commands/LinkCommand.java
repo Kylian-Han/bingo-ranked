@@ -104,9 +104,11 @@ public class LinkCommand {
 
     private static void sendCodeMessage(ServerPlayerEntity player, String code, long ttlSec) {
         long minutes = ttlSec / 60;
+        String siteUrl = RankedBingo.CONFIG.siteUrl;
         Text codePart = Text.literal(code).formatted(Formatting.AQUA, Formatting.BOLD);
         Text line1 = Text.literal("Your link code: ").formatted(Formatting.GREEN).append(codePart);
-        Text line2 = Text.literal("Paste it on the website within " + minutes + " minutes.").formatted(Formatting.GRAY);
+        Text line2 = Text.literal("Paste it on the website within " + minutes + " minutes: " + siteUrl)
+                .formatted(Formatting.GRAY);
         player.sendMessage(line1, false);
         player.sendMessage(line2, false);
     }
