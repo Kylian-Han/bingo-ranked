@@ -39,16 +39,26 @@ bingo_1_21_10/    The existing bingo system (Flytre Bingo, dézippé localement)
 
 **Pas de git sur le serveur.** `/opt/backend` est une copie manuelle.
 
-Workflow déploiement backend :
+**Workflow déploiement — pas de git sur le serveur, tout passe par SCP.**
+
 ```bash
+# Backend
 scp ranked_system/backend/src/routes/*.js root@128.140.47.226:/opt/backend/src/routes/
 scp ranked_system/backend/src/utils/*.js root@128.140.47.226:/opt/backend/src/utils/
 scp ranked_system/backend/migrations/*.sql root@128.140.47.226:/opt/backend/migrations/
 scp ranked_system/backend/src/index.js root@128.140.47.226:/opt/backend/src/
 ssh root@128.140.47.226 "systemctl restart bingo-backend.service"
+
+# Datapack (ranked_hooks)
+scp -r ranked_system/datapack/ranked_hooks root@128.140.47.226:/opt/minecraft/world/datapacks/
+# Puis /reload dans la console MC
+
+# Bingo datapacks (si modifiés)
+scp -r bingo_1_21_10/bingo_release_1_21/datapacks/. root@128.140.47.226:/opt/minecraft/world/datapacks/
+# Puis /reload dans la console MC
 ```
 
-Le frontend se déploie automatiquement via GitHub Pages au `git push` — pas de SCP.
+**Frontend** : déploiement automatique via GitHub Pages au `git push` — aucun SCP.
 
 ## Architecture invariants (don't break)
 
