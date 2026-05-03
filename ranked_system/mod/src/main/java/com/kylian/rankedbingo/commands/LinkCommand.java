@@ -55,6 +55,7 @@ public class LinkCommand {
                                         player.sendMessage(net.minecraft.text.Text.literal("Backend returned an unreadable response.").formatted(net.minecraft.util.Formatting.RED), false));
                                 return;
                             }
+                            RankedBingo.FREEZE_MANAGER.watchForLink(player.getUuid());
                             mcServer.execute(() -> sendCodeMessage(player, code, ttl));
                         } else if (status == 409) {
                             // Already linked — update cache in case they joined before the check resolved.
