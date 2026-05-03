@@ -58,7 +58,14 @@ scp -r bingo_1_21_10/bingo_release_1_21/datapacks/. root@128.140.47.226:/opt/min
 # Puis /reload dans la console MC
 ```
 
-**Frontend** : déploiement automatique via GitHub Pages au `git push` — aucun SCP.
+**Frontend** : GitHub Pages sert la **racine du repo**, pas `ranked_system/frontend/`.
+Après chaque modif frontend, synchroniser vers la racine AVANT le push :
+```bash
+cp ranked_system/frontend/*.html .
+cp -r ranked_system/frontend/js/. js/
+cp -r ranked_system/frontend/css/. css/
+```
+Puis `git push` — GitHub Pages se met à jour automatiquement, aucun SCP.
 
 ## Architecture invariants (don't break)
 
