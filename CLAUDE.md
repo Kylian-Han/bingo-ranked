@@ -113,18 +113,21 @@ python -m http.server 5173    # any static server works
 
 ## Status (as of 2026-05-03)
 
-Déployé et fonctionnel en prod :
-- ✅ Backend complet : auth, leaderboard, profil, admin, HMAC games, Elo par mode
-- ✅ Système Elo/MMR par mode (migrations 003 + 004 appliquées)
+Déployé et fonctionnel en prod (Hetzner, backend + MC sur même machine) :
+- ✅ Backend complet : auth, leaderboard, profil, admin, HMAC games
+- ✅ Elo par mode — `player_ratings` clé `(mc_uuid, mode)`, migrations 003+004 appliquées
+- ✅ Leaderboard : page principale par victoires, filtre mode par Elo du mode
+- ✅ Delta Elo affiché en chat à chaque joueur en fin de partie
 - ✅ Frontend sur GitHub Pages
 - ✅ /link flow end-to-end fonctionnel
 - ✅ Freeze joueurs non-liés (TP immédiat, défreeze auto 2s après /link)
-- ✅ Affichage delta Elo en chat à la fin de chaque partie
+- ✅ Bingo datapacks nettoyés (parasites supprimés, bingo_item.json ajouté dans bingo_manual)
 
 Reste à faire :
-- Patcher les fonctions bingo : ajouter `ranked:on_start_*` et `ranked:on_win_<team>`
+- Patcher les fonctions bingo : ajouter `ranked:on_start_<mode>` et `ranked:on_win_<team>`
   dans le datapack existant (voir `docs/integrate-datapack.md`)
-- Fix détection mode manhunt/lockout : s'assurer que le bingo appelle le bon hook
+- Fix détection mode manhunt/lockout : identifier où le bingo pack sélectionne le mode
+  (`bingo_manual/data/flytre/function/settings/`) et appeler le bon hook
 
 ## Conventions
 
