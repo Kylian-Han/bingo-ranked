@@ -19,11 +19,11 @@ const insertParticipant = db.prepare(`
   VALUES (?, ?, ?, ?, ?)
 `);
 
-const getRating = db.prepare(`SELECT elo, peak_elo, games, wins FROM player_ratings WHERE mc_uuid = ?`);
+const getRating = db.prepare(`SELECT elo, peak_elo, games, wins FROM player_ratings WHERE mc_uuid = ? AND mode = ?`);
 const upsertRating = db.prepare(`
-  INSERT INTO player_ratings (mc_uuid, elo, peak_elo, games, wins, updated_at)
-  VALUES (@mc_uuid, @elo, @peak_elo, @games, @wins, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-  ON CONFLICT(mc_uuid) DO UPDATE SET
+  INSERT INTO player_ratings (mc_uuid, mode, elo, peak_elo, games, wins, updated_at)
+  VALUES (@mc_uuid, @mode, @elo, @peak_elo, @games, @wins, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  ON CONFLICT(mc_uuid, mode) DO UPDATE SET
     elo = excluded.elo,
     peak_elo = MAX(player_ratings.peak_elo, excluded.elo),
     games = excluded.games,
@@ -31,8 +31,8 @@ const upsertRating = db.prepare(`
     updated_at = excluded.updated_at
 `);
 const insertEloHistory = db.prepare(`
-  INSERT INTO elo_history (game_id, mc_uuid, elo_before, elo_after, delta, is_winner)
-  VALUES (?, ?, ?, ?, ?, ?)
+  INSERT INTO elo_history (game_id, mc_uuid, mode, elo_before, elo_after, delta, is_winner)
+  VALUES (?, ?, ?, ?, ?, ?, ?)
 `);
 
 router.post('/', verifyModHmac, (req, res, next) => {
@@ -76,7 +76,7 @@ router.post('/', verifyModHmac, (req, res, next) => {
       // updated ratings + per-game history. Same transaction as the game row
       // so a crash mid-write can't leave Elo and games out of sync.
       const enriched = data.participants.map((p) => {
-        const r = getRating.get(p.mc_uuid);
+        const r = getRating.get(p.mc_uuid, data.mode);
         return {
           mc_uuid: p.mc_uuid,
           team: p.team,
@@ -100,6 +100,7 @@ router.post('/', verifyModHmac, (req, res, next) => {
         const newWins = p.wins + (p.is_winner ? 1 : 0);
         upsertRating.run({
           mc_uuid: p.mc_uuid,
+          mode: data.mode,
           elo: newElo,
           peak_elo: Math.max(p.elo, newElo),
           games: newGames,
@@ -108,6 +109,7 @@ router.post('/', verifyModHmac, (req, res, next) => {
         insertEloHistory.run(
           gameId,
           p.mc_uuid,
+          data.mode,
           d.elo_before,
           d.elo_after,
           d.delta,

@@ -1,6 +1,0 @@
-scoreboard players reset * global
-function flytre:randomize_board/all_0
-#foreach($i in [1..25])
-scoreboard players set trial global $i
-function flytre:randomize_board/pick_random
-#end

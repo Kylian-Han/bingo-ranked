@@ -27,24 +27,25 @@ const summaryStmt = db.prepare(`
     u.username AS site_username,
     u.created_at AS site_created_at,
     m.linked_at,
-    pr.elo,
-    pr.peak_elo,
     COUNT(*) AS games,
     SUM(p.is_winner) AS wins
   FROM game_participants p
   LEFT JOIN mc_accounts m ON m.mc_uuid = p.mc_uuid
   LEFT JOIN users u ON u.id = m.user_id
-  LEFT JOIN player_ratings pr ON pr.mc_uuid = p.mc_uuid
   WHERE p.mc_uuid = ?
   GROUP BY p.mc_uuid
 `);
 
+// Wins/games par mode + Elo du mode si disponible.
 const winsByModeStmt = db.prepare(`
   SELECT g.mode,
          COUNT(*) AS games,
-         SUM(p.is_winner) AS wins
+         SUM(p.is_winner) AS wins,
+         pr.elo,
+         pr.peak_elo
   FROM game_participants p
   JOIN bingo_games g ON g.id = p.game_id
+  LEFT JOIN player_ratings pr ON pr.mc_uuid = p.mc_uuid AND pr.mode = g.mode
   WHERE p.mc_uuid = ?
   GROUP BY g.mode
   ORDER BY wins DESC, games DESC
@@ -85,12 +86,13 @@ const avgRecentDurationStmt = db.prepare(`
 `);
 
 // Full Elo timeline (oldest first) for graphing on the profile page.
+// Optionally filtered by mode (@mode = null means all modes).
 const eloHistoryStmt = db.prepare(`
   SELECT eh.elo_before, eh.elo_after, eh.delta, eh.is_winner,
          g.ended_at, g.mode, g.game_uuid
   FROM elo_history eh
   JOIN bingo_games g ON g.id = eh.game_id
-  WHERE eh.mc_uuid = ?
+  WHERE eh.mc_uuid = @mc_uuid AND (@mode IS NULL OR g.mode = @mode)
   ORDER BY g.ended_at ASC, eh.id ASC
 `);
 
@@ -164,8 +166,6 @@ router.get('/:identifier', (req, res, next) => {
       site_username: summary.site_username,
       site_created_at: summary.site_created_at,
       linked_at: summary.linked_at,
-      elo: summary.elo ?? STARTING_ELO,
-      peak_elo: summary.peak_elo ?? STARTING_ELO,
       totals: {
         games: summary.games,
         wins: summary.wins,
@@ -185,9 +185,11 @@ router.get('/:identifier/elo-history', (req, res, next) => {
   try {
     const mcUuid = resolveMcUuid(req.params.identifier);
     if (!mcUuid) throw new HttpError(404, 'player_not_found');
-    const rows = eloHistoryStmt.all(mcUuid);
+    const mode = req.query.mode ?? null;
+    const rows = eloHistoryStmt.all({ mc_uuid: mcUuid, mode });
     res.json({
       mc_uuid: mcUuid,
+      mode,
       starting_elo: STARTING_ELO,
       points: rows.map((r) => ({
         ended_at: r.ended_at,

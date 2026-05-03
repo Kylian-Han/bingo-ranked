@@ -1,1 +1,0 @@
-execute at @e[tag=bingo] positioned ~ ~ ~ run setblock ~ ~ ~ air

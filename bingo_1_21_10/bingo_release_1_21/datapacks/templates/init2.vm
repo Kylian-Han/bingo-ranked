@@ -1,4 +1,0 @@
-scoreboard objectives add clear dummy
-#foreach($i in [1..25])
-scoreboard objectives add board_$i dummy
-#end

@@ -10,9 +10,27 @@ const querySchema = z.object({
   offset: z.coerce.number().int().min(0).default(0),
 });
 
-// Default leaderboard (no mode filter): rank by current Elo. Wins/games are
-// shown as secondary stats but no longer drive the ordering.
-const leaderboardEloStmt = db.prepare(`
+// Page principale (sans filtre mode) : classement par victoires toutes modes confondues.
+const leaderboardWinsStmt = db.prepare(`
+  SELECT
+    p.mc_uuid,
+    (SELECT mc_username FROM game_participants
+       WHERE mc_uuid = p.mc_uuid ORDER BY id DESC LIMIT 1) AS mc_username,
+    u.username AS site_username,
+    COUNT(*) AS games,
+    SUM(p.is_winner) AS wins,
+    ROUND(CAST(SUM(p.is_winner) AS REAL) * 100.0 / COUNT(*), 1) AS win_rate
+  FROM game_participants p
+  LEFT JOIN mc_accounts m ON m.mc_uuid = p.mc_uuid
+  LEFT JOIN users u ON u.id = m.user_id
+  GROUP BY p.mc_uuid
+  HAVING games > 0
+  ORDER BY wins DESC, mc_username ASC
+  LIMIT @limit OFFSET @offset
+`);
+
+// Filtre par mode : classement par Elo du mode sélectionné.
+const leaderboardByModeStmt = db.prepare(`
   SELECT
     pr.mc_uuid,
     (SELECT mc_username FROM game_participants
@@ -26,33 +44,8 @@ const leaderboardEloStmt = db.prepare(`
   FROM player_ratings pr
   LEFT JOIN mc_accounts m ON m.mc_uuid = pr.mc_uuid
   LEFT JOIN users u ON u.id = m.user_id
-  WHERE pr.games > 0
-  ORDER BY pr.elo DESC, pr.games ASC, mc_username ASC
-  LIMIT @limit OFFSET @offset
-`);
-
-// Mode-specific leaderboard: Elo is global so within a single mode we keep
-// ranking by wins (matches the per-mode breakdown semantics).
-const leaderboardByModeStmt = db.prepare(`
-  SELECT
-    p.mc_uuid,
-    (SELECT mc_username FROM game_participants
-       WHERE mc_uuid = p.mc_uuid ORDER BY id DESC LIMIT 1) AS mc_username,
-    u.username AS site_username,
-    pr.elo,
-    pr.peak_elo,
-    COUNT(*) AS games,
-    SUM(p.is_winner) AS wins,
-    ROUND(CAST(SUM(p.is_winner) AS REAL) * 100.0 / COUNT(*), 1) AS win_rate
-  FROM game_participants p
-  JOIN bingo_games g ON g.id = p.game_id
-  LEFT JOIN mc_accounts m ON m.mc_uuid = p.mc_uuid
-  LEFT JOIN users u ON u.id = m.user_id
-  LEFT JOIN player_ratings pr ON pr.mc_uuid = p.mc_uuid
-  WHERE g.mode = @mode
-  GROUP BY p.mc_uuid
-  HAVING games > 0
-  ORDER BY wins DESC, games ASC, mc_username ASC
+  WHERE pr.mode = @mode AND pr.games > 0
+  ORDER BY pr.elo DESC, mc_username ASC
   LIMIT @limit OFFSET @offset
 `);
 
@@ -73,7 +66,7 @@ router.get('/', (req, res, next) => {
     const { mode, limit, offset } = querySchema.parse(req.query);
     const rows = mode
       ? leaderboardByModeStmt.all({ mode, limit, offset })
-      : leaderboardEloStmt.all({ limit, offset });
+      : leaderboardWinsStmt.all({ limit, offset });
     const totals = totalGamesStmt.get({ mode: mode ?? null });
     res.json({
       mode: mode ?? null,

@@ -1,4 +1,0 @@
-scoreboard players set ${team}_tiles stage 0
-#foreach($i in [1..25])
-execute if score ${team} board_$i matches 1 run scoreboard players add ${team}_tiles stage 1
-#end

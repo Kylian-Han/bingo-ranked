@@ -1,3 +1,0 @@
-#foreach($entry in $item_encryption.entrySet())
-scoreboard players set $entry.getValue() global 0
-#end

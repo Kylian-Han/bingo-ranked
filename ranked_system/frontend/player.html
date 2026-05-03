@@ -57,23 +57,24 @@
       // Stats overview
       const t = data.totals;
       const overview = window.ui.el('div', { class: 'card' }, [
-        window.ui.el('h2', { text: 'Overview' }),
+        window.ui.el('h2', { text: 'Aperçu' }),
         window.ui.el('div', { class: 'stats-grid' }, [
-          stat('Wins', String(t.wins ?? 0)),
-          stat('Games', String(t.games ?? 0)),
+          stat('Victoires', String(t.wins ?? 0)),
+          stat('Parties', String(t.games ?? 0)),
           stat('Win rate', `${t.win_rate ?? 0}%`),
-          stat('Avg time (last 10)', window.ui.formatDuration(data.avg_duration_seconds_last_10)),
+          stat('Temps moy. (10 der.)', window.ui.formatDuration(data.avg_duration_seconds_last_10)),
         ]),
       ]);
       root.appendChild(overview);
 
-      // Per-mode breakdown
+      // Per-mode breakdown avec Elo par mode
       if (data.wins_by_mode.length) {
         const head = window.ui.el('thead', {}, [
           window.ui.el('tr', {}, [
             window.ui.el('th', { text: 'Mode' }),
-            window.ui.el('th', { text: 'Wins' }),
-            window.ui.el('th', { text: 'Games' }),
+            window.ui.el('th', { text: 'Elo' }),
+            window.ui.el('th', { text: 'Victoires' }),
+            window.ui.el('th', { text: 'Parties' }),
             window.ui.el('th', { text: 'Win rate' }),
           ]),
         ]);
@@ -82,13 +83,14 @@
           const rate = m.games > 0 ? Math.round((m.wins / m.games) * 1000) / 10 : 0;
           body.appendChild(window.ui.el('tr', {}, [
             window.ui.el('td', { text: window.ui.modeLabel(m.mode) }),
+            window.ui.el('td', { text: m.elo != null ? String(m.elo) : '—' }),
             window.ui.el('td', { text: String(m.wins) }),
             window.ui.el('td', { text: String(m.games) }),
             window.ui.el('td', { text: rate + '%' }),
           ]));
         }
         const card = window.ui.el('div', { class: 'card' }, [
-          window.ui.el('h2', { text: 'Wins by mode' }),
+          window.ui.el('h2', { text: 'Par mode' }),
           window.ui.el('div', { class: 'table-wrap' }, [
             window.ui.el('table', {}, [head, body]),
           ]),

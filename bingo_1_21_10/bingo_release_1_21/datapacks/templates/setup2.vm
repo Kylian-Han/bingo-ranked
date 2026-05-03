@@ -1,3 +1,0 @@
-tag @a remove init
-setblock -60 116 52 redstone_block
-setblock 0 84 0 redstone_block

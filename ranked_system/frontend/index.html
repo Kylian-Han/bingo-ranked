@@ -12,9 +12,15 @@
   <main>
     <div class="container">
       <h1>Leaderboard</h1>
-      <p class="subtitle">Joueurs classés par Elo.</p>
+      <p class="subtitle" id="subtitle">Joueurs classés par victoires.</p>
 
       <div class="controls">
+        <label>
+          Mode
+          <select id="mode-filter">
+            <option value="">Tous modes</option>
+          </select>
+        </label>
         <div class="spacer"></div>
         <div class="muted" id="totals"></div>
       </div>
@@ -33,24 +39,40 @@
 
       const wrap = document.getElementById('leaderboard-wrap');
       const totalsEl = document.getElementById('totals');
+      const subtitleEl = document.getElementById('subtitle');
+      const modeSelect = document.getElementById('mode-filter');
+
+      try {
+        const { modes } = await window.api.modes();
+        for (const m of modes) {
+          modeSelect.appendChild(window.ui.el('option', {
+            value: m.mode,
+            text: `${window.ui.modeLabel(m.mode)} (${m.games})`,
+          }));
+        }
+      } catch {}
 
       async function load() {
         window.ui.clear(wrap);
         wrap.appendChild(window.ui.el('div', { class: 'card' }, [
           window.ui.el('div', { class: 'skeleton', style: 'height: 32px;' }),
         ]));
+        const mode = modeSelect.value || undefined;
+        subtitleEl.textContent = mode
+          ? `Classement ${window.ui.modeLabel(mode)} par Elo.`
+          : 'Classement toutes modes par victoires.';
         try {
-          const data = await window.api.leaderboard({ limit: 100 });
+          const data = await window.api.leaderboard({ mode, limit: 100 });
           totalsEl.textContent =
             `${data.totals.total_games ?? 0} parties · ${data.totals.total_players ?? 0} joueurs`;
-          renderTable(data.players);
+          renderTable(data.players, mode);
         } catch (e) {
           window.ui.clear(wrap);
           wrap.appendChild(window.ui.el('div', { class: 'alert error', text: 'Impossible de charger le classement.' }));
         }
       }
 
-      function renderTable(players) {
+      function renderTable(players, mode) {
         window.ui.clear(wrap);
         if (!players.length) {
           wrap.appendChild(
@@ -58,28 +80,36 @@
           );
           return;
         }
+        const cols = mode
+          ? ['#', 'Joueur', 'Elo', 'Parties', 'Victoires']
+          : ['#', 'Joueur', 'Victoires', 'Parties'];
         const head = window.ui.el('thead', {}, [
-          window.ui.el('tr', {}, [
-            window.ui.el('th', { text: '#' }),
-            window.ui.el('th', { text: 'Joueur' }),
-            window.ui.el('th', { text: 'Elo' }),
-            window.ui.el('th', { text: 'Parties' }),
-          ]),
+          window.ui.el('tr', {}, cols.map((c) => window.ui.el('th', { text: c }))),
         ]);
         const body = window.ui.el('tbody');
         players.forEach((p, i) => {
           const rank = i + 1;
-          body.appendChild(window.ui.el('tr', {}, [
-            window.ui.el('td', { class: `rank rank-${rank}`, text: '#' + rank }),
-            window.ui.el('td', {}, [window.ui.playerLink(p)]),
-            window.ui.el('td', { text: String(p.elo ?? 1000) }),
-            window.ui.el('td', { text: String(p.games ?? 0) }),
-          ]));
+          const cells = mode
+            ? [
+                window.ui.el('td', { class: `rank rank-${rank}`, text: '#' + rank }),
+                window.ui.el('td', {}, [window.ui.playerLink(p)]),
+                window.ui.el('td', { text: String(p.elo ?? 300) }),
+                window.ui.el('td', { text: String(p.games ?? 0) }),
+                window.ui.el('td', { text: String(p.wins ?? 0) }),
+              ]
+            : [
+                window.ui.el('td', { class: `rank rank-${rank}`, text: '#' + rank }),
+                window.ui.el('td', {}, [window.ui.playerLink(p)]),
+                window.ui.el('td', { text: String(p.wins ?? 0) }),
+                window.ui.el('td', { text: String(p.games ?? 0) }),
+              ];
+          body.appendChild(window.ui.el('tr', {}, cells));
         });
         const table = window.ui.el('table', {}, [head, body]);
         wrap.appendChild(window.ui.el('div', { class: 'table-wrap' }, [table]));
       }
 
+      modeSelect.addEventListener('change', load);
       load();
     })();
   </script>

@@ -1,4 +1,0 @@
-function flytre:win/$team
-function flytre:line/$type
-schedule function flytre:line/$team/draw 7s
-schedule function flytre:line/$team/draw_kill 9s

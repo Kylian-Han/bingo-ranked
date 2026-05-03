@@ -1,7 +1,0 @@
-execute as @e[tag=bingo,tag=$i] at @s run fill ~ ~-17 ~ ~15 ~14 ~15 air
-execute as @e[tag=bingo,tag=$i] at @s run fill ~ ~14 ~ ~15 ~16 ~15 air
-#foreach($item in $indexed_items)
-execute if score $item_encryption.get($item) global matches $i as @e[type=armor_stand,tag=bingo,tag=$i] at @s run setblock ~ ~ ~ minecraft:structure_block[mode=load]{metadata:"",mirror:"NONE",ignoreEntities:1b,powered:0b,rotation:"NONE",posX:0,mode:"LOAD",posY:-17,sizeX:16,posZ:0,name:"flytre:$structure_encryption.get($item)",sizeY:32,sizeZ:16,showboundingbox:1b}
-#end
-#set($previous = $i - 1)
-execute at @e[type=armor_stand,tag=bingo,tag=$previous] positioned ~ ~-1 ~ run setblock ~ ~ ~ redstone_block

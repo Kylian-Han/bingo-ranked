@@ -1,5 +1,0 @@
-function flytre:win/$team
-#set($row_start = ($number - 1) * 5 + 1)
-execute at @e[tag=$row_start] positioned ~6 ~ ~7 run function flytre:line/$type
-schedule function flytre:line/$team/draw 7s
-schedule function flytre:line/$team/draw_kill 9s
