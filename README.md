@@ -9,7 +9,7 @@ Système de classement compétitif (Elo + leaderboard public) ajouté par-dessus
 ## Ce que ça fait
 
 Le datapack Flytre Bingo original annonce un gagnant dans le chat puis reset — sans aucune persistance. Ce projet ajoute :
-
+Lien : https://www.flytre.net/bingo
 - Un **Elo par mode de jeu** (normal, speed, nether, lockout, manhunt, blackout)
 - Un **leaderboard public** trié par victoires (toutes modes) ou par Elo (par mode)
 - Une **page de profil** par joueur avec historique des parties et évolution Elo
